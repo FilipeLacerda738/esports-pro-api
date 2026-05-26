@@ -2,7 +2,15 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 
-engine = create_async_engine(settings.DATABASE_URL, echo=True, future=True)
+
+url_banco = settings.DATABASE_URL
+
+if url_banco.startswith("postgresql://"):
+    url_banco = url_banco.replace("postgresql://", "postgresql+asyncpg://", 1)
+elif url_banco.startswith("postgres://"):
+    url_banco = url_banco.replace("postgres://", "postgresql+asyncpg://", 1)
+
+engine = create_async_engine(url_banco, echo=True, future=True)
 
 SessionLocal = sessionmaker(
     autocommit=False,
