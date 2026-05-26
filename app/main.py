@@ -6,12 +6,13 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.core.config import settings
 from app.api.v1 import teams, matches
 from app.core.security import get_api_key 
-from app.db.session import SessionLocal
+from app.db.session import SessionLocal, engine 
+from app.models.match import Match               
+from app.models.team import Team               
 from app.core.logger import logger
 from app.services.pandascore import get_upcoming_matches, get_past_matches, sync_matches_to_db
 
 scheduler = AsyncIOScheduler()
-
 
 async def update_matches_task():
     logger.info("Buscando atualizações")
@@ -37,14 +38,16 @@ async def update_matches_task():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    async with engine.begin() as conn:
+        await conn.run_sync(Match.metadata.create_all)
+    
     scheduler.add_job(update_matches_task, 'interval', minutes=1)
     scheduler.start()
     
     yield 
 
     scheduler.shutdown()
-    print("Desigando.")
-
+    print("Desligando.")
 
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
 
