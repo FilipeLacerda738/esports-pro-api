@@ -1,7 +1,8 @@
-from fastapi import FastAPI, Depends 
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from sqlalchemy import text
 
 from app.core.config import settings
 from app.api.v1 import teams, matches
@@ -72,6 +73,16 @@ app.include_router(
     tags=["Matches"],
     dependencies=[Depends(get_api_key)]
 )
+
+@app.get("/api/health", tags=["Health"])
+async def health_check():
+    try:
+        async with SessionLocal() as db:
+            await db.execute(text("SELECT 1"))
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        logger.error(f"HEALTH CHECK FAILED: {e}")
+        raise HTTPException(status_code=500, detail="Database connection failed")
 
 @app.get("/")
 async def root():
