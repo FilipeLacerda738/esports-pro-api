@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import text
-
+from sqlalchemy import delete
+from datetime import datetime, timedelta, timezone
 from app.core.config import settings
 from app.api.v1 import teams, matches
 from app.core.security import get_api_key 
@@ -23,26 +24,51 @@ async def update_matches_task():
     async with SessionLocal() as db: 
         for jogo in jogos:
             try:
-                upcoming_data = await get_upcoming_matches(game=jogo, limit=5)
+                upcoming_data = await get_upcoming_matches(game=jogo, limit=50)
                 if upcoming_data:
                     await sync_matches_to_db(matches_data=upcoming_data, db=db, game=jogo)
                     
-                past_data = await get_past_matches(game=jogo, limit=5)
+                past_data = await get_past_matches(game=jogo, limit=50)
                 if past_data:
                     await sync_matches_to_db(matches_data=past_data, db=db, game=jogo)
-                    
+                
+               
+                await db.commit() 
                 logger.info(f"{jogo.upper()} Próximos e Resultados ")
             except Exception as e:
-                logger.error(f" Erro ao atualizar {jogo}: {e}")
                 
-    logger.info(" Todas as atualizações concluídas.")
+                await db.rollback()
+                logger.error(f"Erro crítico ao atualizar {jogo}: {e}", exc_info=True)
+                
+    logger.info("Todas as atualizações concluídas.")
+
+async def cleanup_old_matches_task():
+    logger.info("Iniciando rotina de limpeza (Garbage Collector)...")
+    try:
+        
+        data_limite = datetime.now(timezone.utc) - timedelta(days=15)
+        
+        async with SessionLocal() as db:
+        
+            stmt = delete(Match).where(Match.begin_at < data_limite)
+            resultado = await db.execute(stmt)
+            await db.commit()
+            
+            logger.info(f"Limpeza de banco concluída! {resultado.rowcount} partidas antigas apagadas.")
+            
+    except Exception as e:
+        logger.error(f"Erro crítico na rotina de limpeza: {e}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Match.metadata.create_all)
     
+   
     scheduler.add_job(update_matches_task, 'interval', minutes=1)
+    
+    scheduler.add_job(cleanup_old_matches_task, 'cron', hour=3, minute=0)
+    
     scheduler.start()
     
     yield 

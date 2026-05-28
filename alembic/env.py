@@ -18,6 +18,7 @@ from app.core.config import settings
 from app.db.base import Base
 import app.models.team
 import app.models.match
+from app.models.league import League
 
 config = context.config
 
