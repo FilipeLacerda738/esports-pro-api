@@ -7,6 +7,7 @@ from sqlalchemy.future import select
 from app.core.config import settings
 from app.models.team import Team
 from app.models.match import Match
+from app.models.league import League 
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -48,6 +49,26 @@ async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
         if len(opponents) != 2:
             continue
 
+        league_info = data.get("league")
+        league_id = None
+        
+        if league_info:
+            league_id = league_info.get("id")
+            result_league = await db.execute(select(League).filter(League.id == league_id))
+            league = result_league.scalars().first()
+            
+            if not league:
+                league = League(
+                    id=league_id,
+                    name=league_info.get("name", "Desconhecido"),
+                    image_url=league_info.get("image_url")
+                )
+                db.add(league)
+                await db.flush() 
+            else:
+                if league_info.get("image_url"):
+                    league.image_url = league_info.get("image_url")
+
         team_a_info = opponents[0]["opponent"]
         team_b_info = opponents[1]["opponent"]
   
@@ -88,7 +109,6 @@ async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
         pandascore_id = data["id"]
         result_match = await db.execute(select(Match).filter(Match.pandascore_id == pandascore_id))
         match = result_match.scalars().first()
-
         
         if not match:
             match = Match(
@@ -99,7 +119,8 @@ async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
                 team_b_id=team_b.id,
                 team_a_score=score_a,
                 team_b_score=score_b,
-                begin_at=begin_at
+                begin_at=begin_at,
+                league_id=league_id 
             )
             db.add(match)
         else:
@@ -107,6 +128,7 @@ async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
             match.team_a_score = score_a
             match.team_b_score = score_b
             match.begin_at = begin_at
+            match.league_id = league_id 
             
 async def get_past_matches(game: str = "csgo", limit: int = 5):
     url = f"{BASE_URL}/{game}/matches/past"

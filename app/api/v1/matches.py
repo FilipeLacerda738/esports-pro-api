@@ -7,6 +7,7 @@ from typing import List, Optional
 from app.db.session import get_db
 from app.models.match import Match
 from app.schemas.match import MatchResponse
+from app.services.pandascore import get_upcoming_matches, sync_matches_to_db
 
 router = APIRouter()
 
@@ -37,3 +38,18 @@ async def get_matches(
     result = await db.execute(query)
     
     return result.scalars().all()
+
+@router.post("/sync-now")
+async def force_sync(db: AsyncSession = Depends(get_db)):
+
+    matches_data = await get_upcoming_matches(game="csgo", limit=10)
+    
+    if not matches_data:
+        return {"message": "Nenhum dado recebido da API da PandaScore."}
+        
+    await sync_matches_to_db(matches_data, db, game="csgo")
+    
+    return {
+        "message": "Sincronização concluída", 
+        "partidas_processadas": len(matches_data)
+    }
