@@ -11,6 +11,14 @@ class TeamBasicInfo(BaseModel):
   class config: 
     from_attributes = True
 
+class LeagueResponse(BaseModel):
+    id: int
+    name: str
+    image_url: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
 class MatchResponse(BaseModel):
   id: int
   game: str
@@ -22,5 +30,11 @@ class MatchResponse(BaseModel):
   team_a: Optional[TeamBasicInfo] = None
   team_b: Optional[TeamBasicInfo] = None
 
+  league: Optional[LeagueResponse] = None
+
   class Config:
     from_attributes = True
+
+
+
+

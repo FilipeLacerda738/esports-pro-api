@@ -26,3 +26,5 @@ class Match(Base):
 
   team_a = relationship("Team", foreign_keys=[team_a_id], lazy="selectin")
   team_b = relationship("Team", foreign_keys=[team_b_id], lazy="selectin")
+  league_id = Column(Integer, ForeignKey("leagues.id"), nullable=True)
+  league = relationship("League", back_populates="matches")
