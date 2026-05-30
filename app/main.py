@@ -10,8 +10,7 @@ from app.core.config import settings
 from app.api.v1 import teams, matches
 from app.core.security import get_api_key 
 from app.db.session import SessionLocal, engine 
-from app.models.match import Match               
-from app.models.team import Team               
+from app.models.match import Match
 from app.core.logger import logger
 from app.services.pandascore import (
     get_upcoming_matches, 

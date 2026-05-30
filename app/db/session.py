@@ -16,7 +16,7 @@ if "?sslmode=require" in url_banco:
     url_banco = url_banco.replace("?sslmode=require", "")
 
 
-engine = create_async_engine(url_banco, echo=True, future=True)
+engine = create_async_engine(url_banco, echo=False, future=True)
 
 SessionLocal = sessionmaker(
     autocommit=False,
