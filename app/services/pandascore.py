@@ -115,7 +115,10 @@ async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
             elif len(streams) > 0 and streams[0].get("raw_url"):
                 stream_url = streams[0]["raw_url"]
 
+        
         pandascore_id = data["id"]
+        number_of_games = data.get("number_of_games", 3)
+
         result_match = await db.execute(select(Match).filter(Match.pandascore_id == pandascore_id))
         match = result_match.scalars().first()
         
@@ -130,7 +133,8 @@ async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
                 team_b_score=score_b,
                 begin_at=begin_at,
                 league_id=league_id,
-                stream_url=stream_url 
+                stream_url=stream_url,
+                number_of_games=number_of_games 
             )
             db.add(match)
         else:
@@ -140,6 +144,7 @@ async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
             match.begin_at = begin_at
             match.league_id = league_id 
             match.stream_url = stream_url
+            match.number_of_games = number_of_games 
             
 async def get_past_matches(game: str = "csgo", limit: int = 5):
     url = f"{BASE_URL}/{game}/matches/past"
@@ -166,6 +171,7 @@ async def get_past_matches(game: str = "csgo", limit: int = 5):
         except Exception as e:
             logger.error(f"Erro ao buscar resultados passados: {e}")
             return []
+            
 async def get_running_matches(game: str = "csgo", limit: int = 10):
     url = f"{BASE_URL}/{game}/matches/running"
     

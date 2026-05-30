@@ -1,4 +1,5 @@
 import asyncio
+import httpx
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -45,7 +46,7 @@ async def update_matches_task():
                     await sync_matches_to_db(matches_data=past_data, db=db, game=jogo)
                 
                 await db.commit() 
-                logger.info(f"{jogo.upper()} Próximos, Ao Vivo e Resultados atualizados")
+                logger.info(f"{jogo.upper()} proximos, ao vivo e resultados atualizados")
             except Exception as e:
                 await db.rollback()
                 logger.error(f"Erro crítico ao atualizar {jogo}: {e}", exc_info=True)
@@ -53,7 +54,7 @@ async def update_matches_task():
     logger.info("Todas as atualizações concluídas.")
 
 async def cleanup_old_matches_task():
-    logger.info("Iniciando rotina de limpeza (Garbage Collector)...")
+    logger.info("Garbage Collector...")
     try:
         data_limite = datetime.now(timezone.utc) - timedelta(days=10)
         
@@ -66,31 +67,30 @@ async def cleanup_old_matches_task():
             resultado = await db.execute(stmt)
             await db.commit()
             
-            logger.info(f"Limpeza de banco concluída! {resultado.rowcount} partidas antigas apagadas.")
+            logger.info(f"Limpeza de banco concluída {resultado.rowcount} partidas antigas apagadas.")
             
     except Exception as e:
-        logger.error(f"Erro crítico na rotina de limpeza: {e}")
+        logger.error(f"Erro crítico Garbage Collector: {e}")
 
 async def resolve_stuck_matches_task():
-    logger.info("Iniciando Caça-Fantasmas (Procurando jogos travados)...")
+    logger.info("Procurando jogos travados...")
     try:
-        
-        limite_tempo = datetime.now(timezone.utc) - timedelta(minutes=90)
+        limite_tempo = datetime.now(timezone.utc) - timedelta(hours=8)
         
         async with SessionLocal() as db:
             stmt = (
                 update(Match)
                 .where(Match.begin_at < limite_tempo)
-                .where(Match.status.in_(["not_started", "running"]))
+                .where(Match.status == "not_started")
                 .values(status="finished")
             )
             resultado = await db.execute(stmt)
             await db.commit()
             
             if resultado.rowcount > 0:
-                logger.info(f"{resultado.rowcount} atualizou para FINALIZADO!")
+                logger.info(f"{resultado.rowcount} partida fantasma finalizada")
             else:
-                logger.info("atualizado")
+                logger.info("Nenhum jogo travado encontrado.")
                 
     except Exception as e:
         logger.error(f"Erro na rotina: {e}")
@@ -147,6 +147,31 @@ async def health_check():
     except Exception as e:
         logger.error(f"HEALTH CHECK FAILED: {e}")
         raise HTTPException(status_code=500, detail="Database connection failed")
+
+@app.get("/api/v1/test/pandascore-raw-match/{match_id}", tags=["Test"])
+async def test_get_raw_match(match_id: int):
+    url = f"https://api.pandascore.co/matches/{match_id}"
+    
+    headers = {
+        "Accept": "application/json",
+        "Authorization": f"Bearer {settings.PANDASCORE_API_KEY}"
+    }
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPStatusError as e:
+            raise HTTPException(
+                status_code=e.response.status_code, 
+                detail=f"Erro direto da API PandaScore: {e.response.text}"
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Erro de conexão com a PandaScore: {str(e)}"
+            )
 
 @app.get("/")
 async def root():

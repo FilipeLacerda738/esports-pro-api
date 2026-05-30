@@ -23,6 +23,7 @@ class MatchResponse(BaseModel):
   id: int
   game: str
   status: str
+  number_of_games: Optional[int] = 3 
   begin_at: Optional[datetime] = None
   team_a_score: int
   team_b_score: int
