@@ -148,7 +148,8 @@ async def health_check():
         logger.error(f"HEALTH CHECK FAILED: {e}")
         raise HTTPException(status_code=500, detail="Database connection failed")
 
-@app.get("/api/v1/test/pandascore-raw-match/{match_id}", tags=["Test"])
+@app.get("/api/v1/test/pandascore-raw-match/{match_id}", tags=["Test"],
+         dependencies=[Depends(get_api_key)])
 async def test_get_raw_match(match_id: int):
     url = f"https://api.pandascore.co/matches/{match_id}"
     

@@ -66,6 +66,8 @@ async def force_sync(db: AsyncSession = Depends(get_db)):
         if past: 
             await sync_matches_to_db(past, db, game=jogo)
             total_processado += len(past)
+        
+        await db.commit()
     
     return {
         "message": "Manual sync complete", 
