@@ -5,6 +5,9 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     PANDASCORE_API_KEY: str
     API_ACCESS_KEY: str
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
+    POSTGRES_DB: str
 
     class Config:
         env_file = ".env"

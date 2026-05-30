@@ -7,6 +7,7 @@ from sqlalchemy.future import select
 from app.core.config import settings
 from app.models.team import Team
 from app.models.match import Match
+from app.models.league import League 
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -32,7 +33,7 @@ async def get_upcoming_matches(game: str = "csgo", limit: int = 5):
             response = await client.get(url, headers=headers, params=params)
             response.raise_for_status() 
             data = response.json()
-            logger.info(f"Sucesso! Encontradas {len(data)} partidas na API.")
+            logger.info(f"Encontradas {len(data)} partidas na API.")
             return data
             
         except httpx.HTTPStatusError as e:
@@ -47,6 +48,26 @@ async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
         opponents = data.get("opponents", [])
         if len(opponents) != 2:
             continue
+
+        league_info = data.get("league")
+        league_id = None
+        
+        if league_info:
+            league_id = league_info.get("id")
+            result_league = await db.execute(select(League).filter(League.id == league_id))
+            league = result_league.scalars().first()
+            
+            if not league:
+                league = League(
+                    id=league_id,
+                    name=league_info.get("name", "Desconhecido"),
+                    image_url=league_info.get("image_url")
+                )
+                db.add(league)
+                await db.flush() 
+            else:
+                if league_info.get("image_url"):
+                    league.image_url = league_info.get("image_url")
 
         team_a_info = opponents[0]["opponent"]
         team_b_info = opponents[1]["opponent"]
@@ -84,11 +105,19 @@ async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
         for result in data.get("results", []):
             if result["team_id"] == team_a_info["id"]: score_a = result["score"]
             if result["team_id"] == team_b_info["id"]: score_b = result["score"]
-    
+
+        stream_url = None
+        streams = data.get("streams_list", [])
+        if streams:
+            main_stream = next((s for s in streams if s.get("main")), None)
+            if main_stream and main_stream.get("raw_url"):
+                stream_url = main_stream["raw_url"]
+            elif len(streams) > 0 and streams[0].get("raw_url"):
+                stream_url = streams[0]["raw_url"]
+
         pandascore_id = data["id"]
         result_match = await db.execute(select(Match).filter(Match.pandascore_id == pandascore_id))
         match = result_match.scalars().first()
-
         
         if not match:
             match = Match(
@@ -99,7 +128,9 @@ async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
                 team_b_id=team_b.id,
                 team_a_score=score_a,
                 team_b_score=score_b,
-                begin_at=begin_at
+                begin_at=begin_at,
+                league_id=league_id,
+                stream_url=stream_url 
             )
             db.add(match)
         else:
@@ -107,6 +138,8 @@ async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
             match.team_a_score = score_a
             match.team_b_score = score_b
             match.begin_at = begin_at
+            match.league_id = league_id 
+            match.stream_url = stream_url
             
 async def get_past_matches(game: str = "csgo", limit: int = 5):
     url = f"{BASE_URL}/{game}/matches/past"
@@ -127,9 +160,34 @@ async def get_past_matches(game: str = "csgo", limit: int = 5):
             response = await client.get(url, headers=headers, params=params)
             response.raise_for_status() 
             data = response.json()
-            logger.info(f"Sucesso! Encontrados {len(data)} resultados antigos na API.")
+            logger.info(f"Encontrados {len(data)} resultados antigos na API.")
             return data
             
         except Exception as e:
             logger.error(f"Erro ao buscar resultados passados: {e}")
+            return []
+async def get_running_matches(game: str = "csgo", limit: int = 10):
+    url = f"{BASE_URL}/{game}/matches/running"
+    
+    headers = {
+        "Accept": "application/json",
+        "Authorization": f"Bearer {settings.PANDASCORE_API_KEY}"
+    }
+    
+    params = {
+        "sort": "begin_at",
+        "per_page": limit
+    }
+
+    async with httpx.AsyncClient() as client:
+        try:
+            logger.info(f"Buscando partidas AO VIVO de {game.upper()}...")
+            response = await client.get(url, headers=headers, params=params)
+            response.raise_for_status() 
+            data = response.json()
+            logger.info(f" Encontradas {len(data)} partidas AO VIVO na API.")
+            return data
+            
+        except Exception as e:
+            logger.error(f"Erro ao buscar resultados ao vivo: {e}")
             return []

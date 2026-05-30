@@ -8,7 +8,7 @@ class TeamBasicInfo(BaseModel):
   acronym: Optional[str] = None
   image_url: Optional[str] = None
 
-  class config: 
+  class Config: 
     from_attributes = True
 
 class LeagueResponse(BaseModel):
@@ -26,6 +26,7 @@ class MatchResponse(BaseModel):
   begin_at: Optional[datetime] = None
   team_a_score: int
   team_b_score: int
+  stream_url: Optional[str] = None
 
   team_a: Optional[TeamBasicInfo] = None
   team_b: Optional[TeamBasicInfo] = None
@@ -34,7 +35,3 @@ class MatchResponse(BaseModel):
 
   class Config:
     from_attributes = True
-
-
-
-

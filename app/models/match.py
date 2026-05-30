@@ -20,6 +20,8 @@ class Match(Base):
   team_b_score = Column(Integer, default=0)
 
   begin_at = Column(DateTime(timezone=True), nullable=True)
+  
+  stream_url = Column(String(255), nullable=True)
 
   created_at = Column(DateTime(timezone=True), server_default=func.now())
   updated_at = Column(DateTime(timezone=True), onupdate=func.now())
