@@ -3,14 +3,11 @@ import logging
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-
+from app.core.logger import logger
 from app.core.config import settings
 from app.models.team import Team
 from app.models.match import Match
 from app.models.league import League 
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 BASE_URL = "https://api.pandascore.co"
 
