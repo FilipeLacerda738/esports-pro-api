@@ -2,7 +2,6 @@
 
 <div align="center">
 
-### O motor assíncrono que alimenta os placares de CS2 e VALORANT em tempo real.
 
 [![Licença](https://img.shields.io/github/license/FilipeLacerda738/esports-pro-api?style=flat-square\&logo=gnu\&color=2B3137\&labelColor=161B22)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB.svg?style=flat-square\&logo=python\&logoColor=white\&labelColor=161B22)](https://www.python.org/)
