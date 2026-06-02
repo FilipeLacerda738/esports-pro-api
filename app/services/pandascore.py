@@ -42,6 +42,11 @@ async def get_upcoming_matches(game: str = "csgo", limit: int = 5):
 
 async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
     for data in matches_data:
+        tournament_info = data.get("tournament") or {}
+        tier = tournament_info.get("tier")
+        if str(tier).lower() not in ["s", "a", "b"]:
+            continue
+
         opponents = data.get("opponents", [])
         if len(opponents) != 2:
             continue
@@ -112,9 +117,17 @@ async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
             elif len(streams) > 0 and streams[0].get("raw_url"):
                 stream_url = streams[0]["raw_url"]
 
-        
+        status = data["status"]
         pandascore_id = data["id"]
         number_of_games = data.get("number_of_games", 3)
+
+        if status in ["finished", "canceled"] and score_a == 0 and score_b == 0:
+            result_match = await db.execute(select(Match).filter(Match.pandascore_id == pandascore_id))
+            match_to_delete = result_match.scalars().first()
+            if match_to_delete:
+                await db.delete(match_to_delete)
+                logger.info(f"Jogo W.O. deletado {team_a.name} vs {team_b.name}")
+            continue 
 
         result_match = await db.execute(select(Match).filter(Match.pandascore_id == pandascore_id))
         match = result_match.scalars().first()
@@ -123,7 +136,7 @@ async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
             match = Match(
                 pandascore_id=pandascore_id,
                 game=game.upper(),
-                status=data["status"],
+                status=status,
                 team_a_id=team_a.id,
                 team_b_id=team_b.id,
                 team_a_score=score_a,
@@ -135,7 +148,7 @@ async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
             )
             db.add(match)
         else:
-            match.status = data["status"]
+            match.status = status
             match.team_a_score = score_a
             match.team_b_score = score_b
             match.begin_at = begin_at
@@ -194,3 +207,20 @@ async def get_running_matches(game: str = "csgo", limit: int = 10):
         except Exception as e:
             logger.error(f"Erro ao buscar resultados ao vivo: {e}")
             return []
+
+async def get_match_by_id(match_id: int):
+    url = f"{BASE_URL}/matches/{match_id}"
+    
+    headers = {
+        "Accept": "application/json",
+        "Authorization": f"Bearer {settings.PANDASCORE_API_KEY}"
+    }
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Erro no Sniper (ID {match_id}): {e}")
+            return None
