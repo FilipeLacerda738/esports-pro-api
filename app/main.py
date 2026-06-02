@@ -4,7 +4,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from sqlalchemy import text, delete, update
+from sqlalchemy import text, delete, update, select
 from datetime import datetime, timedelta, timezone
 from app.core.config import settings
 from app.api.v1 import teams, matches
@@ -16,36 +16,48 @@ from app.services.pandascore import (
     get_upcoming_matches, 
     get_past_matches, 
     get_running_matches, 
-    sync_matches_to_db
+    sync_matches_to_db,
+    get_match_by_id
 )
 
 scheduler = AsyncIOScheduler()
 
 async def update_matches_task():
-    logger.info("Buscando atualizações")
+    logger.info("Buscando atualizações...")
     
     jogos = ["valorant", "csgo"] 
     
     async with SessionLocal() as db: 
         for jogo in jogos:
             try:
-               
+                stmt = select(Match).filter(Match.status == "running", Match.game == jogo.upper())
+                result = await db.execute(stmt)
+                running_db = result.scalars().all()
+
+                if running_db:
+                    sniper_data = []
+                    for m in running_db:
+                        fresh = await get_match_by_id(m.pandascore_id)
+                        if fresh:
+                            sniper_data.append(fresh)
+                    
+                    if sniper_data:
+                        await sync_matches_to_db(matches_data=sniper_data, db=db, game=jogo)
+
                 upcoming_data = await get_upcoming_matches(game=jogo, limit=50)
                 if upcoming_data:
                     await sync_matches_to_db(matches_data=upcoming_data, db=db, game=jogo)
-                
                 
                 running_data = await get_running_matches(game=jogo, limit=20)
                 if running_data:
                     await sync_matches_to_db(matches_data=running_data, db=db, game=jogo)
                     
-               
                 past_data = await get_past_matches(game=jogo, limit=50)
                 if past_data:
                     await sync_matches_to_db(matches_data=past_data, db=db, game=jogo)
                 
                 await db.commit() 
-                logger.info(f"{jogo.upper()} proximos, ao vivo e resultados atualizados")
+                logger.info(f" {jogo.upper()}: Próximos, ao vivo e resultados atualizados.")
             except Exception as e:
                 await db.rollback()
                 logger.error(f"Erro crítico ao atualizar {jogo}: {e}", exc_info=True)
@@ -53,7 +65,7 @@ async def update_matches_task():
     logger.info("Todas as atualizações concluídas.")
 
 async def cleanup_old_matches_task():
-    logger.info("Garbage Collector...")
+    logger.info("Iniciando limpeza profunda de histórico...")
     try:
         data_limite = datetime.now(timezone.utc) - timedelta(days=10)
         
@@ -66,33 +78,45 @@ async def cleanup_old_matches_task():
             resultado = await db.execute(stmt)
             await db.commit()
             
-            logger.info(f"Limpeza de banco concluída {resultado.rowcount} partidas antigas apagadas.")
+            logger.info(f"Limpeza de banco concluída: {resultado.rowcount} partidas antigas apagadas.")
             
     except Exception as e:
-        logger.error(f"Erro crítico Garbage Collector: {e}")
+        logger.error(f"Erro crítico na limpeza profunda: {e}")
 
 async def resolve_stuck_matches_task():
-    logger.info("Procurando jogos travados...")
+    logger.info("Iniciando inspeção...")
     try:
-        limite_tempo = datetime.now(timezone.utc) - timedelta(hours=8)
+        now = datetime.now(timezone.utc)
+        limite_tempo = now - timedelta(hours=8)
         
         async with SessionLocal() as db:
-            stmt = (
+            stmt_delete = (
+                delete(Match)
+                .where(Match.status.in_(["finished", "canceled"]))
+                .where(Match.team_a_score == 0)
+                .where(Match.team_b_score == 0)
+            )
+            res_del = await db.execute(stmt_delete)
+            if res_del.rowcount > 0:
+                logger.info(f"{res_del.rowcount} jogos (0-0) foram deletados")
+
+            stmt_update = (
                 update(Match)
                 .where(Match.begin_at < limite_tempo)
-                .where(Match.status == "not_started")
+                .where(Match.status.in_(["not_started", "running"]))
                 .values(status="finished")
             )
-            resultado = await db.execute(stmt)
+            res_upd = await db.execute(stmt_update)
+            
             await db.commit()
             
-            if resultado.rowcount > 0:
-                logger.info(f"{resultado.rowcount} partida fantasma finalizada")
+            if res_upd.rowcount > 0:
+                logger.info(f"{res_upd.rowcount} partidas travadas foram finalizadas.")
             else:
-                logger.info("Nenhum jogo travado encontrado.")
+                logger.info("Nenhum jogo travado detectado.")
                 
     except Exception as e:
-        logger.error(f"Erro na rotina: {e}")
+        logger.error(f"Erro na rotina de inspeção: {e}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
