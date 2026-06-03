@@ -7,7 +7,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import text, delete, update, select
 from datetime import datetime, timedelta, timezone
 from app.core.config import settings
-from app.api.v1 import teams, matches
+from app.api.v1 import teams, matches, system
 from app.core.security import get_api_key 
 from app.db.session import SessionLocal, engine 
 from app.db.base import Base
@@ -174,6 +174,10 @@ app.include_router(
     tags=["Matches"],
     dependencies=[Depends(get_api_key)]
 )
+
+app.include_router(system.router, 
+                   prefix="/api/v1/system", 
+                   tags=["System"])
 
 @app.get("/api/health", tags=["Health"])
 async def health_check():
