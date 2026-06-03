@@ -27,7 +27,6 @@ from app.services.pandascore import (
 scheduler = AsyncIOScheduler()
 
 async def update_live_matches_task():
-
     logger.info("Buscando atualizações AO VIVO...")
     jogos = ["valorant", "csgo"] 
     
@@ -96,21 +95,34 @@ async def cleanup_old_matches_task():
         logger.error(f"Erro crítico na limpeza profunda: {e}")
 
 async def resolve_stuck_matches_task():
-    logger.info("Iniciando inspeção...")
+    logger.info("Iniciando inspeção e resgate de partidas travadas...")
     try:
         now = datetime.now(timezone.utc)
-        limite_tempo = now - timedelta(hours=8)
+        limite_tempo = now - timedelta(hours=3)
         
         async with SessionLocal() as db:
-            stmt_delete = (
-                delete(Match)
-                .where(Match.status.in_(["finished", "canceled"]))
-                .where(Match.team_a_score == 0)
-                .where(Match.team_b_score == 0)
+            stmt_stuck = select(Match).where(
+                Match.begin_at < limite_tempo,
+                Match.status.in_(["not_started", "running"])
             )
-            res_del = await db.execute(stmt_delete)
-            if res_del.rowcount > 0:
-                logger.info(f"{res_del.rowcount} jogos (0-0) foram deletados")
+            result = await db.execute(stmt_stuck)
+            stuck_matches = result.scalars().all()
+
+            if stuck_matches:
+                logger.info(f"Encontradas {len(stuck_matches)} partidas travadas. Fazendo a ÚLTIMA VERIFICAÇÃO na API...")
+                sniper_data = []
+                
+                for match in stuck_matches:
+                    fresh_data = await get_match_by_id(match.pandascore_id)
+                    if fresh_data:
+                        sniper_data.append(fresh_data)
+                
+                if sniper_data:
+                    csgo_data = [d for d in sniper_data if d.get("videogame", {}).get("slug") == "cs-go"]
+                    valorant_data = [d for d in sniper_data if d.get("videogame", {}).get("slug") == "valorant"]
+                    
+                    if csgo_data: await sync_matches_to_db(csgo_data, db, "csgo")
+                    if valorant_data: await sync_matches_to_db(valorant_data, db, "valorant")
 
             stmt_update = (
                 update(Match)
@@ -119,13 +131,20 @@ async def resolve_stuck_matches_task():
                 .values(status="finished")
             )
             res_upd = await db.execute(stmt_update)
+            if res_upd.rowcount > 0:
+                logger.info(f"{res_upd.rowcount} partidas abandonadas pela API foram finalizadas à força.")
+
+            stmt_delete = (
+                delete(Match)
+                .where(Match.status.in_(["finished", "canceled"]))
+                .where(Match.team_a_score == 0)
+                .where(Match.team_b_score == 0)
+            )
+            res_del = await db.execute(stmt_delete)
+            if res_del.rowcount > 0:
+                logger.info(f"🗑️ {res_del.rowcount} jogos fantasmas (0-0) foram deletados do banco.")
             
             await db.commit()
-            
-            if res_upd.rowcount > 0:
-                logger.info(f"{res_upd.rowcount} partidas travadas foram finalizadas.")
-            else:
-                logger.info("Nenhum jogo travado detectado.")
                 
     except Exception as e:
         logger.error(f"Erro na rotina de inspeção: {e}")
@@ -135,7 +154,7 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     
-    scheduler.add_job(update_live_matches_task, 'interval', minutes=2)
+    scheduler.add_job(update_live_matches_task, 'interval', minutes=1)
     scheduler.add_job(update_static_matches_task, 'interval', minutes=30)
     scheduler.add_job(cleanup_old_matches_task, 'cron', hour=3, minute=0)
     scheduler.add_job(resolve_stuck_matches_task, 'interval', minutes=30)
