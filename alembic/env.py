@@ -19,6 +19,8 @@ from app.db.base import Base
 import app.models.team
 import app.models.match
 from app.models.league import League
+from app.models.player import Player
+from app.models.map import GameMap
 
 config = context.config
 

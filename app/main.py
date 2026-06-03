@@ -10,7 +10,11 @@ from app.core.config import settings
 from app.api.v1 import teams, matches
 from app.core.security import get_api_key 
 from app.db.session import SessionLocal, engine 
+from app.db.base import Base
 from app.models.match import Match
+from app.models.team import Team
+from app.models.player import Player
+from app.models.map import GameMap
 from app.core.logger import logger
 from app.services.pandascore import (
     get_upcoming_matches, 
@@ -22,14 +26,17 @@ from app.services.pandascore import (
 
 scheduler = AsyncIOScheduler()
 
-async def update_matches_task():
-    logger.info("Buscando atualizações...")
-    
+async def update_live_matches_task():
+
+    logger.info("Buscando atualizações AO VIVO...")
     jogos = ["valorant", "csgo"] 
     
     async with SessionLocal() as db: 
         for jogo in jogos:
             try:
+                running_data = await get_running_matches(game=jogo, limit=15)
+                if running_data:
+                    await sync_matches_to_db(matches_data=running_data, db=db, game=jogo)
                 stmt = select(Match).filter(Match.status == "running", Match.game == jogo.upper())
                 result = await db.execute(stmt)
                 running_db = result.scalars().all()
@@ -43,26 +50,31 @@ async def update_matches_task():
                     
                     if sniper_data:
                         await sync_matches_to_db(matches_data=sniper_data, db=db, game=jogo)
+                
+                await db.commit() 
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"Erro crítico no Live Task ({jogo}): {e}", exc_info=True)
 
-                upcoming_data = await get_upcoming_matches(game=jogo, limit=50)
+async def update_static_matches_task():
+    logger.info("Sincronizando calendário e resultados...")
+    jogos = ["valorant", "csgo"] 
+    
+    async with SessionLocal() as db: 
+        for jogo in jogos:
+            try:
+                upcoming_data = await get_upcoming_matches(game=jogo, limit=30)
                 if upcoming_data:
                     await sync_matches_to_db(matches_data=upcoming_data, db=db, game=jogo)
-                
-                running_data = await get_running_matches(game=jogo, limit=20)
-                if running_data:
-                    await sync_matches_to_db(matches_data=running_data, db=db, game=jogo)
                     
-                past_data = await get_past_matches(game=jogo, limit=50)
+                past_data = await get_past_matches(game=jogo, limit=30)
                 if past_data:
                     await sync_matches_to_db(matches_data=past_data, db=db, game=jogo)
                 
                 await db.commit() 
-                logger.info(f" {jogo.upper()}: Próximos, ao vivo e resultados atualizados.")
             except Exception as e:
                 await db.rollback()
-                logger.error(f"Erro crítico ao atualizar {jogo}: {e}", exc_info=True)
-                
-    logger.info("Todas as atualizações concluídas.")
+                logger.error(f"Erro crítico no Static Task ({jogo}): {e}", exc_info=True)
 
 async def cleanup_old_matches_task():
     logger.info("Iniciando limpeza profunda de histórico...")
@@ -121,15 +133,17 @@ async def resolve_stuck_matches_task():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
-        await conn.run_sync(Match.metadata.create_all)
+        await conn.run_sync(Base.metadata.create_all)
     
-    scheduler.add_job(update_matches_task, 'interval', minutes=1)
+    scheduler.add_job(update_live_matches_task, 'interval', minutes=2)
+    scheduler.add_job(update_static_matches_task, 'interval', minutes=30)
     scheduler.add_job(cleanup_old_matches_task, 'cron', hour=3, minute=0)
     scheduler.add_job(resolve_stuck_matches_task, 'interval', minutes=30)
     
     scheduler.start()
     
-    asyncio.create_task(update_matches_task())
+    asyncio.create_task(update_live_matches_task())
+    asyncio.create_task(update_static_matches_task())
     asyncio.create_task(resolve_stuck_matches_task())
     
     yield 

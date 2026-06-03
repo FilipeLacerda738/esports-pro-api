@@ -1,13 +1,15 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
+from sqlalchemy import or_
 from typing import List, Optional 
 from datetime import date, datetime, time, timezone
 
 from app.db.session import get_db
 from app.models.match import Match
-from app.schemas.match import MatchResponse
+from app.models.team import Team
+from app.schemas.match import MatchResponse, MatchDetailResponse
 from app.services.pandascore import get_upcoming_matches, sync_matches_to_db, get_running_matches, get_past_matches
 
 router = APIRouter()
@@ -44,6 +46,27 @@ async def get_matches(
     result = await db.execute(query)
     
     return result.scalars().all()
+
+@router.get("/{match_id}/details", response_model=MatchDetailResponse)
+async def get_match_details(match_id: int, db: AsyncSession = Depends(get_db)):
+    stmt = (
+        select(Match)
+        .options(
+            selectinload(Match.league),
+            selectinload(Match.team_a).selectinload(Team.players),
+            selectinload(Match.team_b).selectinload(Team.players),
+            selectinload(Match.games)
+        )
+        .where(or_(Match.id == match_id, Match.pandascore_id == match_id))
+    )
+    
+    result = await db.execute(stmt)
+    match = result.scalar_one_or_none()
+    
+    if not match:
+        raise HTTPException(status_code=404, detail="Partida não encontrada no banco de dados.")
+        
+    return match
 
 @router.post("/sync-now")
 async def force_sync(db: AsyncSession = Depends(get_db)):
