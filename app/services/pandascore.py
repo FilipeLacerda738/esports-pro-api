@@ -1,3 +1,4 @@
+import os
 import httpx
 import logging
 from datetime import datetime
@@ -13,23 +14,47 @@ from app.models.player import Player
 
 BASE_URL = "https://api.pandascore.co"
 
-async def get_team_roster(team_id: int, game: str):
-    url = f"{BASE_URL}/teams/{team_id}"
+API_KEYS_STR = os.getenv("PANDASCORE_KEYS", os.getenv("PANDASCORE_API_KEY", ""))
+API_KEYS = [k.strip() for k in API_KEYS_STR.split(",") if k.strip()]
+
+async def request_pandascore(endpoint: str, params: dict = None):
+    url = f"{BASE_URL}{endpoint}" if endpoint.startswith("/") else f"{BASE_URL}/{endpoint}"
+    headers = {"Accept": "application/json"}
     
-    headers = {
-        "Accept": "application/json",
-        "Authorization": f"Bearer {settings.PANDASCORE_API_KEY}"
-    }
-    
+    if not API_KEYS:
+        logger.error("Nenhuma chave da PandaScore encontrada nas configurações!")
+        return None
+
     async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(url, headers=headers)
-            response.raise_for_status()
-            data = response.json()
-            return data.get("players", [])
-        except Exception as e:
-            logger.error(f"Erro ao buscar jogadores do time {team_id}: {e}")
-            return []
+        for i, key in enumerate(API_KEYS):
+            headers["Authorization"] = f"Bearer {key}"
+            try:
+                response = await client.get(url, headers=headers, params=params)
+                
+                if response.status_code == 429:
+                    logger.warning(f"Chave {i+1}/{len(API_KEYS)} estourou (429). Tentando chave reserva...")
+                    continue
+                
+                response.raise_for_status()
+                return response.json()
+                
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 429:
+                    logger.warning(f" Chave {i+1}/{len(API_KEYS)} estourou (429). Tentando chave reserva...")
+                    continue
+                logger.error(f"Erro HTTP na PandaScore: {e.response.status_code}")
+                return None
+            except Exception as e:
+                logger.error(f"Erro de conexão com a PandaScore: {e}")
+                return None
+                
+        logger.critical("TODAS as chaves da PandaScore falharam")
+        return None
+
+
+async def get_team_roster(team_id: int, game: str):
+    data = await request_pandascore(f"/teams/{team_id}")
+    return data.get("players", []) if data else []
 
 async def sync_team_players(team_id_pandascore: int, team_id_db: int, game: str, db: AsyncSession):
     stmt = select(Player).filter(Player.team_id == team_id_db)
@@ -63,33 +88,13 @@ async def sync_team_players(team_id_pandascore: int, team_id_db: int, game: str,
             player.image_url = p_data.get("image_url")
 
 async def get_upcoming_matches(game: str = "csgo", limit: int = 5):
-    url = f"{BASE_URL}/{game}/matches/upcoming"
-    
-    headers = {
-        "Accept": "application/json",
-        "Authorization": f"Bearer {settings.PANDASCORE_API_KEY}"
-    }
-    
-    params = {
-        "sort": "begin_at",
-        "per_page": limit
-    }
-
-    async with httpx.AsyncClient() as client:
-        try:
-            logger.info(f"Buscando as próximas {limit} partidas de {game.upper()}...")
-            response = await client.get(url, headers=headers, params=params)
-            response.raise_for_status() 
-            data = response.json()
-            logger.info(f"Encontradas {len(data)} partidas na API.")
-            return data
-            
-        except httpx.HTTPStatusError as e:
-            logger.error(f"Erro na API da PandaScore. Status: {e.response.status_code}")
-            return []
-        except Exception as e:
-            logger.error(f"Erro de conexão: {e}")
-            return []
+    logger.info(f"Buscando as próximas {limit} partidas de {game.upper()}...")
+    params = {"sort": "begin_at", "per_page": limit}
+    data = await request_pandascore(f"/{game}/matches/upcoming", params=params)
+    if data:
+        logger.info(f"Encontradas {len(data)} partidas na API.")
+        return data
+    return []
 
 async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
     for data in matches_data:
@@ -275,70 +280,19 @@ async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
                 db.add(new_game)
             
 async def get_past_matches(game: str = "csgo", limit: int = 5):
-    url = f"{BASE_URL}/{game}/matches/past"
-    
-    headers = {
-        "Accept": "application/json",
-        "Authorization": f"Bearer {settings.PANDASCORE_API_KEY}"
-    }
-    
-    params = {
-        "sort": "-begin_at",
-        "per_page": limit
-    }
-
-    async with httpx.AsyncClient() as client:
-        try:
-            logger.info(f"Buscando os últimos {limit} resultados de {game.upper()}...")
-            response = await client.get(url, headers=headers, params=params)
-            response.raise_for_status() 
-            data = response.json()
-            logger.info(f"Encontrados {len(data)} resultados antigos na API.")
-            return data
-            
-        except Exception as e:
-            logger.error(f"Erro ao buscar resultados passados: {e}")
-            return []
+    logger.info(f"Buscando os últimos {limit} resultados de {game.upper()}...")
+    params = {"sort": "-begin_at", "per_page": limit}
+    data = await request_pandascore(f"/{game}/matches/past", params=params)
+    return data if data else []
             
 async def get_running_matches(game: str = "csgo", limit: int = 10):
-    url = f"{BASE_URL}/{game}/matches/running"
-    
-    headers = {
-        "Accept": "application/json",
-        "Authorization": f"Bearer {settings.PANDASCORE_API_KEY}"
-    }
-    
-    params = {
-        "sort": "begin_at",
-        "per_page": limit
-    }
-
-    async with httpx.AsyncClient() as client:
-        try:
-            logger.info(f"Buscando partidas AO VIVO de {game.upper()}...")
-            response = await client.get(url, headers=headers, params=params)
-            response.raise_for_status() 
-            data = response.json()
-            logger.info(f" Encontradas {len(data)} partidas AO VIVO na API.")
-            return data
-            
-        except Exception as e:
-            logger.error(f"Erro ao buscar resultados ao vivo: {e}")
-            return []
+    logger.info(f"Buscando partidas AO VIVO de {game.upper()}...")
+    params = {"sort": "begin_at", "per_page": limit}
+    data = await request_pandascore(f"/{game}/matches/running", params=params)
+    if data:
+        logger.info(f" Encontradas {len(data)} partidas AO VIVO na API.")
+        return data
+    return []
 
 async def get_match_by_id(match_id: int):
-    url = f"{BASE_URL}/matches/{match_id}"
-    
-    headers = {
-        "Accept": "application/json",
-        "Authorization": f"Bearer {settings.PANDASCORE_API_KEY}"
-    }
-    
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(url, headers=headers)
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Erro no Sniper (ID {match_id}): {e}")
-            return None
+    return await request_pandascore(f"/matches/{match_id}")
