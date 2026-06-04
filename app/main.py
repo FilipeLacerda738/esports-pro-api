@@ -8,7 +8,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import text, delete, update, select
 from datetime import datetime, timedelta, timezone
 from app.core.config import settings
-from app.api.v1 import teams, matches, system
+from app.api.v1 import teams, matches, system, testes
 from app.core.security import get_api_key 
 from app.db.session import SessionLocal, engine 
 from app.db.base import Base
@@ -165,7 +165,7 @@ async def lifespan(app: FastAPI):
     
     scheduler.add_job(update_live_matches_task, 'interval', minutes=1)
     scheduler.add_job(update_static_matches_task, 'interval', minutes=30)
-    scheduler.add_job(cleanup_old_matches_task, 'cron', hour=3, minute=0)
+    scheduler.add_job(cleanup_old_matches_task, 'cron', hour=5, minute=0)
     scheduler.add_job(resolve_stuck_matches_task, 'interval', minutes=30)
     
     scheduler.start()
@@ -203,36 +203,18 @@ app.include_router(
     dependencies=[Depends(get_api_key)]
 )
 
-app.include_router(system.router, 
-                   prefix="/api/v1/system", 
-                   tags=["System"])
+app.include_router(
+    system.router, 
+    prefix="/api/v1/system", 
+    tags=["System"]
+)
 
-
-@app.get("/api/v1/test/pandascore-raw-match/{match_id}", tags=["Test"],
-         dependencies=[Depends(get_api_key)])
-async def test_get_raw_match(match_id: int):
-    url = f"https://api.pandascore.co/matches/{match_id}"
-    
-    headers = {
-        "Accept": "application/json",
-        "Authorization": f"Bearer {settings.PANDASCORE_API_KEY}"
-    }
-    
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(url, headers=headers)
-            response.raise_for_status()
-            return response.json()
-        except httpx.HTTPStatusError as e:
-            raise HTTPException(
-                status_code=e.response.status_code, 
-                detail=f"Erro direto da API PandaScore: {e.response.text}"
-            )
-        except Exception as e:
-            raise HTTPException(
-                status_code=500, 
-                detail=f"Erro de conexão com a PandaScore: {str(e)}"
-            )
+app.include_router(
+    testes.router, 
+    prefix="/api/v1/test", 
+    tags=["Test"],
+    dependencies=[Depends(get_api_key)]
+)
 
 @app.get("/")
 async def root():
