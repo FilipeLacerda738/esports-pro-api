@@ -1,5 +1,6 @@
 import asyncio
 import httpx
+import gc  
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -29,51 +30,55 @@ scheduler = AsyncIOScheduler()
 async def update_live_matches_task():
     logger.info("Buscando atualizações AO VIVO...")
     jogos = ["valorant", "csgo"] 
-    
-    async with SessionLocal() as db: 
-        for jogo in jogos:
-            try:
-                running_data = await get_running_matches(game=jogo, limit=15)
-                if running_data:
-                    await sync_matches_to_db(matches_data=running_data, db=db, game=jogo)
-                stmt = select(Match).filter(Match.status == "running", Match.game == jogo.upper())
-                result = await db.execute(stmt)
-                running_db = result.scalars().all()
+    try:
+        async with SessionLocal() as db: 
+            for jogo in jogos:
+                try:
+                    running_data = await get_running_matches(game=jogo, limit=15)
+                    if running_data:
+                        await sync_matches_to_db(matches_data=running_data, db=db, game=jogo)
+                    stmt = select(Match).filter(Match.status == "running", Match.game == jogo.upper())
+                    result = await db.execute(stmt)
+                    running_db = result.scalars().all()
 
-                if running_db:
-                    sniper_data = []
-                    for m in running_db:
-                        fresh = await get_match_by_id(m.pandascore_id)
-                        if fresh:
-                            sniper_data.append(fresh)
+                    if running_db:
+                        sniper_data = []
+                        for m in running_db:
+                            fresh = await get_match_by_id(m.pandascore_id)
+                            if fresh:
+                                sniper_data.append(fresh)
+                        
+                        if sniper_data:
+                            await sync_matches_to_db(matches_data=sniper_data, db=db, game=jogo)
                     
-                    if sniper_data:
-                        await sync_matches_to_db(matches_data=sniper_data, db=db, game=jogo)
-                
-                await db.commit() 
-            except Exception as e:
-                await db.rollback()
-                logger.error(f"Erro crítico no Live Task ({jogo}): {e}", exc_info=True)
+                    await db.commit() 
+                except Exception as e:
+                    await db.rollback()
+                    logger.error(f"Erro crítico no Live Task ({jogo}): {e}", exc_info=True)
+    finally:
+        gc.collect()
 
 async def update_static_matches_task():
     logger.info("Sincronizando calendário e resultados...")
     jogos = ["valorant", "csgo"] 
-    
-    async with SessionLocal() as db: 
-        for jogo in jogos:
-            try:
-                upcoming_data = await get_upcoming_matches(game=jogo, limit=30)
-                if upcoming_data:
-                    await sync_matches_to_db(matches_data=upcoming_data, db=db, game=jogo)
+    try:
+        async with SessionLocal() as db: 
+            for jogo in jogos:
+                try:
+                    upcoming_data = await get_upcoming_matches(game=jogo, limit=30)
+                    if upcoming_data:
+                        await sync_matches_to_db(matches_data=upcoming_data, db=db, game=jogo)
+                        
+                    past_data = await get_past_matches(game=jogo, limit=30)
+                    if past_data:
+                        await sync_matches_to_db(matches_data=past_data, db=db, game=jogo)
                     
-                past_data = await get_past_matches(game=jogo, limit=30)
-                if past_data:
-                    await sync_matches_to_db(matches_data=past_data, db=db, game=jogo)
-                
-                await db.commit() 
-            except Exception as e:
-                await db.rollback()
-                logger.error(f"Erro crítico no Static Task ({jogo}): {e}", exc_info=True)
+                    await db.commit() 
+                except Exception as e:
+                    await db.rollback()
+                    logger.error(f"Erro crítico no Static Task ({jogo}): {e}", exc_info=True)
+    finally:
+        gc.collect()
 
 async def cleanup_old_matches_task():
     logger.info("Iniciando limpeza profunda de histórico...")
@@ -93,6 +98,8 @@ async def cleanup_old_matches_task():
             
     except Exception as e:
         logger.error(f"Erro crítico na limpeza profunda: {e}")
+    finally:
+        gc.collect()
 
 async def resolve_stuck_matches_task():
     logger.info("Iniciando inspeção e resgate de partidas travadas...")
@@ -148,6 +155,8 @@ async def resolve_stuck_matches_task():
                 
     except Exception as e:
         logger.error(f"Erro na rotina de inspeção: {e}")
+    finally:
+        gc.collect()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
