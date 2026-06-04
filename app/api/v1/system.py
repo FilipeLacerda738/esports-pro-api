@@ -1,6 +1,9 @@
 import httpx
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import text
+from app.db.session import SessionLocal
+from app.core.logger import logger
 
 router = APIRouter()
 
@@ -31,3 +34,13 @@ async def get_latest_app_version():
         "download_url": "https://github.com/FilipeLacerda738/EsportsNewsAppAndroid/releases/latest",
         "release_notes": release_notes
     }
+
+@router.get("/health")
+async def health_check():
+    try:
+        async with SessionLocal() as db:
+            await db.execute(text("SELECT 1"))
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        logger.error(f"HEALTH CHECK FAILED: {e}")
+        raise HTTPException(status_code=500, detail="Database connection failed")

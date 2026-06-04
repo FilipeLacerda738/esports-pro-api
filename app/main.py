@@ -207,15 +207,6 @@ app.include_router(system.router,
                    prefix="/api/v1/system", 
                    tags=["System"])
 
-@app.get("/api/health", tags=["Health"])
-async def health_check():
-    try:
-        async with SessionLocal() as db:
-            await db.execute(text("SELECT 1"))
-        return {"status": "healthy", "database": "connected"}
-    except Exception as e:
-        logger.error(f"HEALTH CHECK FAILED: {e}")
-        raise HTTPException(status_code=500, detail="Database connection failed")
 
 @app.get("/api/v1/test/pandascore-raw-match/{match_id}", tags=["Test"],
          dependencies=[Depends(get_api_key)])
