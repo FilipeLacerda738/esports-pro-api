@@ -149,7 +149,7 @@ async def resolve_stuck_matches_task():
             )
             res_del = await db.execute(stmt_delete)
             if res_del.rowcount > 0:
-                logger.info(f"🗑️ {res_del.rowcount} jogos fantasmas (0-0) foram deletados do banco.")
+                logger.info(f"{res_del.rowcount} jogos (0-0) foram deletados do banco.")
             
             await db.commit()
                 

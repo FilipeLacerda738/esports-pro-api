@@ -14,7 +14,7 @@ from app.models.player import Player
 
 BASE_URL = "https://api.pandascore.co"
 
-API_KEYS_STR = os.getenv("PANDASCORE_KEYS", os.getenv("PANDASCORE_API_KEY", ""))
+API_KEYS_STR = settings.PANDASCORE_KEYS if settings.PANDASCORE_KEYS else settings.PANDASCORE_API_KEY
 API_KEYS = [k.strip() for k in API_KEYS_STR.split(",") if k.strip()]
 
 async def request_pandascore(endpoint: str, params: dict = None):
