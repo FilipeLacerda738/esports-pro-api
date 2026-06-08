@@ -68,3 +68,12 @@ class MatchDetailResponse(BaseModel):
     games: List[GameMapSchema] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+class PaginatedMatchResponse(BaseModel):
+    total: int
+    page: int
+    size: int
+    has_more: bool
+    items: List[MatchResponse]
+
+    model_config = ConfigDict(from_attributes=True)

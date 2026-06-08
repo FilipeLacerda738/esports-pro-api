@@ -2,34 +2,34 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from typing import List, Optional 
 from datetime import date, datetime, time, timezone
 
 from app.db.session import get_db
 from app.models.match import Match
 from app.models.team import Team
-from app.schemas.match import MatchResponse, MatchDetailResponse
+from app.schemas.match import MatchResponse, MatchDetailResponse, PaginatedMatchResponse
 from app.services.pandascore import get_upcoming_matches, sync_matches_to_db, get_running_matches, get_past_matches
 
 router = APIRouter()
 
-@router.get("/", response_model=List[MatchResponse])
+@router.get("/", response_model=PaginatedMatchResponse)
 async def get_matches(
-    limit: int = 50,
+    page: int = 1,         
+    limit: int = 15,
     game: Optional[str] = None,   
     status: Optional[str] = None, 
     data_calendario: date = None,
     db: AsyncSession = Depends(get_db)
 ):
-    query = select(Match).options(selectinload(Match.league))
+    query = select(Match)
 
     if game:
         query = query.filter(Match.game == game.upper())
 
     if status:
         query = query.filter(Match.status == status)
-        
         if status == "not_started":
             query = query.order_by(Match.begin_at.asc()) 
         else:
@@ -41,11 +41,24 @@ async def get_matches(
         inicio_dia = datetime.combine(data_calendario, time.min, tzinfo=timezone.utc)
         fim_dia = datetime.combine(data_calendario, time.max, tzinfo=timezone.utc)
         query = query.filter(Match.begin_at >= inicio_dia).filter(Match.begin_at <= fim_dia)
-        
-    query = query.limit(limit)
+
+    count_query = query.with_only_columns(func.count(Match.id)).order_by(None)
+    total_result = await db.execute(count_query)
+    total_items = total_result.scalar()
+
+    offset = (page - 1) * limit
+
+    query = query.options(selectinload(Match.league)).offset(offset).limit(limit)
     result = await db.execute(query)
-    
-    return result.scalars().all()
+    items = result.scalars().all()
+
+    return PaginatedMatchResponse(
+        total=total_items,
+        page=page,
+        size=len(items),
+        has_more=(offset + len(items)) < total_items,
+        items=items
+    )
 
 @router.get("/{match_id}/details", response_model=MatchDetailResponse)
 async def get_match_details(match_id: int, db: AsyncSession = Depends(get_db)):
