@@ -1,8 +1,8 @@
-# Esports Hub - API (Backend)
+# ⚙️ Esports Hub - API (Backend Service)
 
 <div align="center">
 
-### The asynchronous engine powering real-time CS2 and VALORANT live scores.
+### High-performance and resilient architecture for the Esports Hub ecosystem.
 
 [![License](https://img.shields.io/github/license/FilipeLacerda738/esports-pro-api?style=flat-square\&logo=gnu\&color=2B3137\&labelColor=161B22)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB.svg?style=flat-square\&logo=python\&logoColor=white\&labelColor=161B22)](https://www.python.org/)
@@ -13,88 +13,73 @@
 
 ---
 
-> 📱 **The Frontend is Open Source too!**
-> This API was specifically designed for the Esports Hub Android application. To see how the data is consumed in practice using Kotlin and Jetpack Compose, check out the [Android App Repository](your-frontend-repository-link-here).
+> 📱 **The Android Client is also Open Source!**
+> This API was designed exclusively to power our mobile application. To see data serialization and the UI consuming this API in practice, check out the [Android App Repository](https://github.com/FilipeLacerda738/EsportsNewsAppAndroid.git).
 
 ---
 
-# Table of Contents
+## 🎯 Architecture and Problem Solving
 
-* [Overview](#overview)
-* [Tech Stack](#tech-stack)
-* [Key Features](#key-features)
-* [Local Installation & Usage](#local-installation--usage)
-* [Environment Variables (.env)](#environment-variables-env)
-* [Deployment (Render)](#deployment-render)
-* [Contributing](#contributing)
-* [License](#license)
+The **Esports Hub API** is not just a simple CRUD application. It acts as an intelligent *Middleware* between the **PandaScore API** and end-user devices.
 
----
+One of the biggest challenges with free sports APIs is aggressive request limits (*Rate Limiting*). To solve this problem and guarantee `Uptime`, this API was built with a strong focus on **Autonomy and Resilience**.
 
-# Overview
+### 🔥 Implemented Engineering Solutions
 
-The **Esports Hub API** is a high-performance RESTful service built entirely with asynchronous architecture. It acts as an intelligent intermediary between the official **PandaScore API** and end-user mobile devices.
-
-Instead of overwhelming the original API with thousands of requests per minute, this backend uses background workers to periodically fetch updates, store the data inside PostgreSQL, and instantly serve clients without rate-limit bottlenecks.
+* 🔄 **Fallback System and API Key Rotation:** Implementation of an exception handler capable of identifying `HTTP 429 (Too Many Requests)` errors and automatically rotating (*fallbacking*) between a pool of API keys, ensuring the service never goes down.
+* 🤖 **Autonomous Workers (Background Polling):** Instead of forwarding user requests directly to PandaScore, the server uses `APScheduler` to asynchronously fetch data and update a PostgreSQL database. Users query our database, not the external API.
+* 🛡️ **Strict Environment Parsing:** Advanced usage of `Pydantic BaseSettings` to validate environment variables during startup, ensuring the server does not boot if critical credentials or security keys are missing.
+* ⚡ **Fully Non-Blocking I/O:** The entire stack — from routing (`FastAPI`) to database access (`SQLAlchemy 2.0` + `asyncpg`) and external requests (`httpx`) — is fully asynchronous.
 
 ---
 
-# Tech Stack
+## 🛠 Tech Stack
 
 <div align="center">
 
-|                                            Framework & Language                                            |                                           Database & ORM                                           |                                              DevOps & Tasks                                             |
-| :--------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------: |
-|   ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge\&logo=python\&logoColor=white)  | ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge\&logo=postgresql) | ![Render](https://img.shields.io/badge/Render-000000?style=for-the-badge\&logo=render\&logoColor=white) |
-| ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge\&logo=fastapi\&logoColor=white) |       ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-Async-D71F00?style=for-the-badge)      |             ![Uvicorn](https://img.shields.io/badge/Uvicorn-ASGI-499848?style=for-the-badge)            |
-|                ![Pydantic](https://img.shields.io/badge/Pydantic-E92063?style=for-the-badge)               |         ![asyncpg](https://img.shields.io/badge/asyncpg-Driver-336791?style=for-the-badge)         |       ![APScheduler](https://img.shields.io/badge/APScheduler-Workers-F5A623?style=for-the-badge)       |
+|        Framework & Validation        |         Database & ORM         |       DevOps & Tasks      |
+| :----------------------------------: | :----------------------------: | :-----------------------: |
+|      **FastAPI** (Async Routing)     |         **PostgreSQL**         | **Render** (Cloud Deploy) |
+| **Pydantic** (Serialization/Schemas) | **SQLAlchemy 2.0** (Async ORM) | **Uvicorn** (ASGI Server) |
+|        **HTTPX** (Web Client)        |     **asyncpg** (DB Driver)    | **APScheduler** (Workers) |
 
 </div>
 
 ---
 
-# Key Features
+# Local Installation and Usage
 
-* ⚡ **High Performance:** built from the ground up using `async`/`await`, allowing tens of thousands of simultaneous requests.
-* 🤖 **Autonomous Workers:** integrated with `APScheduler` to run polling routines that continuously update match data in the database.
-* 🔒 **Hardened Security:** routes protected with a custom `X-API-Key` header and strict data validation through Pydantic.
-* 🗄️ **Asynchronous Database Layer:** powered by `asyncpg` and SQLAlchemy 2.0 for fully non-blocking reads and writes.
+## Prerequisites
 
----
-
-# Local Installation & Usage
-
-## Requirements
-
-* Python 3.10 or newer
-* A running PostgreSQL database (local or cloud-hosted such as Neon or Supabase)
+* Python 3.10 or higher
+* A PostgreSQL database running locally or in the cloud (Neon, Supabase, etc.)
 * A free API key from [PandaScore](https://pandascore.co/)
 
 ---
 
-## Step-by-Step Setup
+## Step-by-Step
 
 ### 1. Clone the repository
 
-```bash id="f8o2x1"
+```bash
 git clone https://github.com/FilipeLacerda738/esports-pro-api.git
 cd esports-pro-api
 ```
 
 ---
 
-### 2. Create and activate a virtual environment
+### 2. Create and activate the virtual environment
 
 #### Linux / macOS
 
-```bash id="d7a3ke"
+```bash
 python -m venv .venv
 source .venv/bin/activate
 ```
 
 #### Windows
 
-```bash id="q3m1ps"
+```bash
 python -m venv .venv
 .venv\Scripts\activate
 ```
@@ -103,23 +88,23 @@ python -m venv .venv
 
 ### 3. Install dependencies
 
-```bash id="e9lmv2"
+```bash
 pip install -r requirements.txt
 ```
 
 ---
 
-### 4. Start the local development server
+### 4. Start the local server
 
-```bash id="cw8qhz"
+```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ---
 
-Interactive API documentation (Swagger UI) will be available at:
+Interactive documentation (Swagger UI) will be available at:
 
-```txt id="m0j4kd"
+```txt
 http://localhost:8000/docs
 ```
 
@@ -129,93 +114,93 @@ http://localhost:8000/docs
 
 Create a `.env` file in the project root containing the following variables.
 
-> ⚠️ Never upload this file to GitHub.
+> ⚠️ Never commit this file to GitHub.
 
-```ini id="pk7z4w"
+```ini
 # Project Settings
 PROJECT_NAME="Esports API"
 
-# API Protection Key
+# Protection Key
 # The Android app must send this same key in the request header
-API_ACCESS_KEY="your_secret_key_here"
+API_ACCESS_KEY="your_random_key_here"
 
 # Database
-POSTGRES_USER="your_username"
+POSTGRES_USER="your_user"
 POSTGRES_PASSWORD="your_password"
 POSTGRES_DB="esports_db"
 
-# SQLAlchemy requires the +asyncpg driver prefix
-DATABASE_URL="postgresql+asyncpg://username:password@localhost:5432/esports_db"
+# SQLAlchemy requires the +asyncpg prefix
+DATABASE_URL="postgresql+asyncpg://user:password@localhost:5432/esports_db"
 
 # PandaScore
-PANDASCORE_API_KEY="your_pandascore_api_key"
+PANDASCORE_API_KEY="your_pandascore_key"
 ```
 
 ---
 
 # Deployment (Render)
 
-This project is fully ready for deployment on [Render](https://render.com/).
+This project is ready for deployment on [Render](https://render.com/).
 
-## Deployment Steps
+## Steps
 
 ### 1. Create a new Web Service
 
-Connect your GitHub account and select this repository.
+Connect your GitHub account to Render and select this repository.
 
 ---
 
 ### 2. Configure the Start Command
 
-```bash id="z6rf1v"
+```bash
 uvicorn app.main:app --host 0.0.0.0 --port $PORT
 ```
 
 ---
 
-### 3. Add Environment Variables
+### 3. Configure environment variables
 
-Add all variables from your `.env` file into the:
+Add all `.env` variables under the:
 
-```txt id="yu7r1e"
+```txt
 Environment
 ```
 
-section inside Render.
+section.
 
 ---
 
-### 4. SSL Configuration for Remote Databases
+### 4. SSL configuration for remote databases
 
-If you are using Neon, Supabase, or any remote PostgreSQL provider, append:
+If you are using Neon, Supabase, or another remote database provider, append:
 
-```txt id="af7t5o"
+```txt
 ?sslmode=require
 ```
 
-to the end of your `DATABASE_URL`.
+to the end of the `DATABASE_URL`.
 
 Example:
 
-```txt id="vb9x2c"
-postgresql+asyncpg://username:password@host/database?sslmode=require
+```txt
+postgresql+asyncpg://user:password@host/db?sslmode=require
 ```
 
 ---
 
-# Contributing
+# Contributions
 
 Feel free to fork the project and propose improvements.
 
-The esports ecosystem evolves rapidly, and there is always room for innovation.
+The eSports ecosystem evolves rapidly, and there is always room for new ideas.
 
 ---
 
 # Roadmap
 
-* [ ] WebSocket implementation for true real-time updates
-* [ ] Redis API caching layer
-* [ ] Worker decoupling using Celery
+* [ ] WebSocket implementation for real-time updates
+* [ ] API caching using Redis
+* [ ] Worker decoupling with Celery
 * [ ] JWT authentication system
 * [ ] Monitoring and metrics with Prometheus + Grafana
 
@@ -225,4 +210,4 @@ The esports ecosystem evolves rapidly, and there is always room for innovation.
 
 Distributed under the MIT License.
 
-See `LICENSE` for more information.
+See the `LICENSE` file for more information.

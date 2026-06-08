@@ -1,65 +1,52 @@
-# Esports Hub - API (Backend)
+# ⚙️ Esports Hub - API (Backend Service)
 
 <div align="center">
 
+### Arquitetura de alta performance e resiliência para o ecossistema Esports Hub.
 
-[![Licença](https://img.shields.io/github/license/FilipeLacerda738/esports-pro-api?style=flat-square\&logo=gnu\&color=2B3137\&labelColor=161B22)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB.svg?style=flat-square\&logo=python\&logoColor=white\&labelColor=161B22)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-009688.svg?style=flat-square\&logo=fastapi\&logoColor=white\&labelColor=161B22)](https://fastapi.tiangolo.com/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1.svg?style=flat-square\&logo=postgresql\&logoColor=white\&labelColor=161B22)](https://www.postgresql.org/)
+[![Licença](https://img.shields.io/github/license/FilipeLacerda738/esports-pro-api?style=flat-square&logo=gnu&color=2B3137&labelColor=161B22)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB.svg?style=flat-square&logo=python&logoColor=white&labelColor=161B22)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688.svg?style=flat-square&logo=fastapi&logoColor=white&labelColor=161B22)](https://fastapi.tiangolo.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1.svg?style=flat-square&logo=postgresql&logoColor=white&labelColor=161B22)](https://www.postgresql.org/)
 
 </div>
 
 ---
 
-> 📱 **O Frontend também é Open Source!**
-> Esta API foi construída sob medida para o aplicativo Android do Esports Hub. Para ver o consumo de dados na prática usando Kotlin e Jetpack Compose, confira o [Repositório do Aplicativo Android](https://github.com/FilipeLacerda738/EsportsNewsAppAndroid.git).
+> 📱 **O Cliente Android também é Open Source!**
+> Esta API foi desenhada exclusivamente para alimentar o nosso aplicativo mobile. Para ver a serialização de dados e a UI consumindo esta API na prática, confira o [Repositório do Aplicativo Android](https://github.com/FilipeLacerda738/EsportsNewsAppAndroid.git).
 
 ---
 
-# Tabela de Conteúdos
+## 🎯 Arquitetura e Resolução de Problemas
 
-* [Visão Geral](#visão-geral)
-* [Stack Tecnológico](#stack-tecnológico)
-* [Características Principais](#características-principais)
-* [Instalação e Uso Local](#instalação-e-uso-local)
-* [Variáveis de Ambiente (.env)](#variáveis-de-ambiente-env)
-* [Deploy (Render)](#deploy-render)
-* [Contribuições](#contribuições)
-* [Licença](#licença)
+A **Esports Hub API** não é um simples CRUD. Ela atua como um *Middleware* inteligente entre a API da **PandaScore** e os dispositivos dos usuários finais. 
 
----
+O grande desafio de APIs gratuitas de esportes é o limite agressivo de requisições (*Rate Limiting*). Para resolver isso e garantir `Uptime`, esta API foi construída com foco em **Autonomia e Resiliência**.
 
-# Visão Geral
+### 🔥 Soluções de Engenharia Implementadas:
 
-A **Esports Hub API** é um serviço RESTful focado em performance, construído inteiramente de forma assíncrona. Ela atua como um intermediário inteligente entre a API oficial da **PandaScore** e os dispositivos móveis dos usuários.
-
-Em vez de sobrecarregar a API original com milhares de requisições por minuto, este backend utiliza workers em segundo plano para buscar atualizações periodicamente, salvando os dados em um banco PostgreSQL e servindo os clientes instantaneamente sem gargalos de rate limit.
+* 🔄 **Sistema de Fallback e Rotação de Chaves:** Implementação de um tratador de exceções que identifica erros `HTTP 429 (Too Many Requests)` e realiza a rotação automática (*fallback*) entre um *pool* de chaves da API, garantindo que o serviço nunca caia.
+* 🤖 **Workers Autônomos (Background Polling):** Em vez de repassar a requisição do usuário para a PandaScore, o servidor usa o `APScheduler` para puxar os dados de forma assíncrona, atualizando um banco de dados PostgreSQL. O usuário consulta nosso banco, não a API externa.
+* 🛡️ **Parsing Estrito de Ambiente:** Uso avançado de `Pydantic BaseSettings` para validar variáveis de ambiente no *startup*, garantindo que o servidor não suba se faltarem credenciais cruciais ou chaves de segurança.
+* ⚡ **I/O Totalmente Não-Bloqueante:** Toda a cadeia, do roteamento (`FastAPI`) ao acesso ao banco de dados (`SQLAlchemy 2.0` + `asyncpg`) e requisições externas (`httpx`), é 100% assíncrona.
 
 ---
 
-# Stack Tecnológico
+## 🛠 Stack Tecnológico
 
 <div align="center">
 
-|                                            Framework & Linguagem                                           |                                        Banco de Dados & ORM                                        |                                             DevOps & Tarefas                                            |
-| :--------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------: |
-|   ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge\&logo=python\&logoColor=white)  | ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge\&logo=postgresql) | ![Render](https://img.shields.io/badge/Render-000000?style=for-the-badge\&logo=render\&logoColor=white) |
-| ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge\&logo=fastapi\&logoColor=white) |       ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-Async-D71F00?style=for-the-badge)      |             ![Uvicorn](https://img.shields.io/badge/Uvicorn-ASGI-499848?style=for-the-badge)            |
-|                ![Pydantic](https://img.shields.io/badge/Pydantic-E92063?style=for-the-badge)               |         ![asyncpg](https://img.shields.io/badge/asyncpg-Driver-336791?style=for-the-badge)         |       ![APScheduler](https://img.shields.io/badge/APScheduler-Workers-F5A623?style=for-the-badge)       |
+| Framework & Validação | Banco de Dados & ORM | DevOps & Tarefas |
+| :---: | :---: | :---: |
+| **FastAPI** (Roteamento Async) | **PostgreSQL** | **Render** (Cloud Deploy) |
+| **Pydantic** (Serialização/Schemas) | **SQLAlchemy 2.0** (ORM Async) | **Uvicorn** (ASGI Server) |
+| **HTTPX** (Web Client) | **asyncpg** (Driver DB) | **APScheduler** (Workers) |
 
 </div>
 
 ---
 
-# Características Principais
-
-* ⚡ **Alta Performance:** construída do zero usando `async`/`await`, permitindo dezenas de milhares de requisições simultâneas.
-* 🤖 **Workers Autônomos:** integração com `APScheduler` para executar rotinas de polling que atualizam os jogos no banco de dados minuto a minuto.
-* 🔒 **Segurança Blindada:** rotas protegidas por uma chave personalizada (`API_ACCESS_KEY`) exigida via cabeçalho e validação restrita de dados via Pydantic.
-* 🗄️ **Banco Assíncrono:** uso do driver `asyncpg` integrado ao SQLAlchemy 2.0 para leituras e gravações não bloqueantes.
-
----
 
 # Instalação e Uso Local
 
