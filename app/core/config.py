@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings
+from typing import List
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Esports API"
@@ -9,6 +10,8 @@ class Settings(BaseSettings):
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
+    ENVIRONMENT: str = "development"
+    BACKEND_CORS_ORIGINS: List[str] = ["*"]
 
     class Config:
         env_file = ".env"

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, List
 from datetime import datetime
 
@@ -18,7 +18,6 @@ class TeamResponse(TeamBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-
 class PlayerSchema(BaseModel):
     id: int
     name: str
@@ -33,6 +32,6 @@ class TeamDetailSchema(BaseModel):
     name: str
     acronym: Optional[str] = None
     image_url: Optional[str] = None
-    players: List[PlayerSchema] = [] 
+    players: List[PlayerSchema] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)

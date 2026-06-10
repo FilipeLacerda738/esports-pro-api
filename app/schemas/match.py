@@ -1,7 +1,6 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
 from typing import Optional, List
-
 
 from app.schemas.team import TeamDetailSchema 
 
@@ -10,19 +9,15 @@ class TeamBasicInfo(BaseModel):
     name: str
     acronym: Optional[str] = None
     image_url: Optional[str] = None
-
     model_config = ConfigDict(from_attributes=True)
 
 class LeagueResponse(BaseModel):
     id: int
     name: str
     image_url: Optional[str] = None
-
     model_config = ConfigDict(from_attributes=True)
 
 class MatchResponse(BaseModel):
-
-
     id: int
     game: str
     status: str
@@ -38,8 +33,6 @@ class MatchResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-
-
 class GameMapSchema(BaseModel):
     id: int
     position: int
@@ -50,7 +43,6 @@ class GameMapSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class MatchDetailResponse(BaseModel):
-  
     id: int
     game: str
     status: str
@@ -61,11 +53,10 @@ class MatchDetailResponse(BaseModel):
     stream_url: Optional[str] = None
     league: Optional[LeagueResponse] = None
     
-  
     team_a: Optional[TeamDetailSchema] = None
     team_b: Optional[TeamDetailSchema] = None
     
-    games: List[GameMapSchema] = []
+    games: List[GameMapSchema] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -75,5 +66,4 @@ class PaginatedMatchResponse(BaseModel):
     size: int
     has_more: bool
     items: List[MatchResponse]
-
     model_config = ConfigDict(from_attributes=True)

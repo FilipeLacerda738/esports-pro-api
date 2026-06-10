@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import text, delete, update, select
 from datetime import datetime, timedelta, timezone
+
 from app.core.config import settings
 from app.api.v1 import teams, matches, system, testes
 from app.core.security import get_api_key 
@@ -160,9 +161,6 @@ async def resolve_stuck_matches_task():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    
     scheduler.add_job(update_live_matches_task, 'interval', minutes=1)
     scheduler.add_job(update_static_matches_task, 'interval', minutes=30)
     scheduler.add_job(cleanup_old_matches_task, 'cron', hour=5, minute=0)
@@ -181,9 +179,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
 
+origins = getattr(settings, "BACKEND_CORS_ORIGINS", ["*"])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -209,12 +209,14 @@ app.include_router(
     tags=["System"]
 )
 
-app.include_router(
-    testes.router, 
-    prefix="/api/v1/test", 
-    tags=["Test"],
-    dependencies=[Depends(get_api_key)]
-)
+if getattr(settings, "ENVIRONMENT", "production") == "development":
+    app.include_router(
+        testes.router, 
+        prefix="/api/v1/test", 
+        tags=["Test (Dev Only)"],
+        dependencies=[Depends(get_api_key)]
+    )
+    logger.info("Rotas de Debug habilitadas para ambiente de desenvolvimento.")
 
 @app.get("/")
 async def root():

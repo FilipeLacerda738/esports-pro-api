@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -16,8 +16,8 @@ router = APIRouter()
 
 @router.get("/", response_model=PaginatedMatchResponse)
 async def get_matches(
-    page: int = 1,         
-    limit: int = 15,
+    page: int = Query(1, ge=1, description="Número da página, deve ser maior ou igual a 1"),         
+    limit: int = Query(15, ge=1, le=100, description="Quantidade de itens por página (máximo 100)"),
     game: Optional[str] = None,   
     status: Optional[str] = None, 
     data_calendario: date = None,
