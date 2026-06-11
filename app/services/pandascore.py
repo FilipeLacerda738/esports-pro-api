@@ -51,7 +51,6 @@ async def request_pandascore(endpoint: str, params: dict = None):
         logger.critical("TODAS as chaves da PandaScore falharam")
         return None
 
-
 async def get_team_roster(team_id: int, game: str):
     data = await request_pandascore(f"/teams/{team_id}")
     return data.get("players", []) if data else []
@@ -106,41 +105,56 @@ async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
         opponents = data.get("opponents", [])
         if len(opponents) != 2:
             continue
-
         league_info = data.get("league")
-        league_id = None
+        league_internal_id = None
         
         if league_info:
-            league_id = league_info.get("id")
-            result_league = await db.execute(select(League).filter(League.id == league_id))
+            league_ps_id = league_info.get("id")
+            result_league = await db.execute(select(League).filter(League.pandascore_id == league_ps_id))
             league = result_league.scalars().first()
             
             if not league:
-                league = League(
-                    id=league_id,
-                    name=league_info.get("name", "Desconhecido"),
-                    image_url=league_info.get("image_url")
-                )
-                db.add(league)
-                await db.flush() 
+                result_old_league = await db.execute(select(League).filter(League.id == league_ps_id))
+                league = result_old_league.scalars().first()
+                
+                if league:
+                    league.pandascore_id = league_ps_id 
+                else:
+                    league = League(
+                        pandascore_id=league_ps_id,
+                        name=league_info.get("name", "Desconhecido"),
+                        image_url=league_info.get("image_url")
+                    )
+                    db.add(league)
             else:
                 if league_info.get("image_url"):
                     league.image_url = league_info.get("image_url")
+                    
+            await db.flush() 
+            league_internal_id = league.id
 
         team_a_info = opponents[0]["opponent"]
-        team_b_info = opponents[1]["opponent"]
-  
-        result_a = await db.execute(select(Team).filter(Team.name == team_a_info["name"]))
+        team_a_ps_id = team_a_info["id"]
+        
+        result_a = await db.execute(select(Team).filter(Team.pandascore_id == team_a_ps_id))
         team_a = result_a.scalars().first()
+        
         if not team_a:
-            team_a = Team(
-                name=team_a_info["name"], 
-                acronym=team_a_info.get("acronym"), 
-                image_url=team_a_info.get("image_url"), 
-                game=game.upper()
-            )
-            db.add(team_a)
-            await db.flush()
+            result_old_a = await db.execute(select(Team).filter(Team.name == team_a_info["name"], Team.game == game.upper()))
+            team_a = result_old_a.scalars().first()
+            
+            if team_a:
+                team_a.pandascore_id = team_a_ps_id 
+            else:
+                team_a = Team(
+                    pandascore_id=team_a_ps_id,
+                    name=team_a_info["name"], 
+                    acronym=team_a_info.get("acronym"), 
+                    image_url=team_a_info.get("image_url"), 
+                    game=game.upper()
+                )
+                db.add(team_a)
+        await db.flush()
             
         if team_a_info.get("players"):
             for p_data in team_a_info.get("players", []):
@@ -161,19 +175,29 @@ async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
                     player.team_id = team_a.id
                     player.image_url = p_data.get("image_url")
         else:
-            await sync_team_players(team_a_info["id"], team_a.id, game, db)
-   
-        result_b = await db.execute(select(Team).filter(Team.name == team_b_info["name"]))
+            await sync_team_players(team_a_ps_id, team_a.id, game, db)
+
+        team_b_info = opponents[1]["opponent"]
+        team_b_ps_id = team_b_info["id"]
+  
+        result_b = await db.execute(select(Team).filter(Team.pandascore_id == team_b_ps_id))
         team_b = result_b.scalars().first()
+        
         if not team_b:
-            team_b = Team(
-                name=team_b_info["name"], 
-                acronym=team_b_info.get("acronym"), 
-                image_url=team_b_info.get("image_url"), 
-                game=game.upper()
-            )
-            db.add(team_b)
-            await db.flush()
+            result_old_b = await db.execute(select(Team).filter(Team.name == team_b_info["name"], Team.game == game.upper()))
+            team_b = result_old_b.scalars().first()
+            if team_b:
+                team_b.pandascore_id = team_b_ps_id
+            else:
+                team_b = Team(
+                    pandascore_id=team_b_ps_id,
+                    name=team_b_info["name"], 
+                    acronym=team_b_info.get("acronym"), 
+                    image_url=team_b_info.get("image_url"), 
+                    game=game.upper()
+                )
+                db.add(team_b)
+        await db.flush()
             
         if team_b_info.get("players"):
             for p_data in team_b_info.get("players", []):
@@ -194,8 +218,9 @@ async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
                     player.team_id = team_b.id
                     player.image_url = p_data.get("image_url")
         else:
-            await sync_team_players(team_b_info["id"], team_b.id, game, db)
+            await sync_team_players(team_b_ps_id, team_b.id, game, db)
       
+        # === 4. DADOS DA PARTIDA ===
         begin_at = None
         if data.get("begin_at"):
             begin_at = datetime.fromisoformat(data["begin_at"].replace('Z', '+00:00'))
@@ -239,7 +264,7 @@ async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
                 team_a_score=score_a,
                 team_b_score=score_b,
                 begin_at=begin_at,
-                league_id=league_id,
+                league_id=league_internal_id,
                 stream_url=stream_url,
                 number_of_games=number_of_games 
             )
@@ -250,7 +275,7 @@ async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
             match.team_a_score = score_a
             match.team_b_score = score_b
             match.begin_at = begin_at
-            match.league_id = league_id 
+            match.league_id = league_internal_id 
             match.stream_url = stream_url
             match.number_of_games = number_of_games
             await db.flush()

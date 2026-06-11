@@ -7,6 +7,7 @@ class Team(Base):
   __tablename__ = "teams"
 
   id = Column(Integer, primary_key=True, index=True)
+  pandascore_id = Column(Integer, unique=True, index=True, nullable=True)
   name = Column(String(100), nullable=False, index=True)
   acronym = Column(String(10), nullable=True)
   image_url = Column(String, nullable=True)

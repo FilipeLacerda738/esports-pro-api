@@ -5,8 +5,8 @@ from sqlalchemy.orm import relationship
 class League(Base):
     __tablename__ = "leagues"
 
-    
     id = Column(Integer, primary_key=True, index=True)
+    pandascore_id = Column(Integer, unique=True, index=True, nullable=True)
     name = Column(String, nullable=False)
     image_url = Column(String, nullable=True)  
 

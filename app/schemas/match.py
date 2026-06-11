@@ -6,6 +6,7 @@ from app.schemas.team import TeamDetailSchema
 
 class TeamBasicInfo(BaseModel):
     id: int
+    pandascore_id: Optional[int] = None
     name: str
     acronym: Optional[str] = None
     image_url: Optional[str] = None
@@ -13,12 +14,14 @@ class TeamBasicInfo(BaseModel):
 
 class LeagueResponse(BaseModel):
     id: int
+    pandascore_id: Optional[int] = None
     name: str
     image_url: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 class MatchResponse(BaseModel):
     id: int
+    pandascore_id: int
     game: str
     status: str
     number_of_games: Optional[int] = 3 
@@ -44,6 +47,7 @@ class GameMapSchema(BaseModel):
 
 class MatchDetailResponse(BaseModel):
     id: int
+    pandascore_id: int
     game: str
     status: str
     number_of_games: Optional[int] = 3 

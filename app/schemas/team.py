@@ -3,6 +3,7 @@ from typing import Optional, List
 from datetime import datetime
 
 class TeamBase(BaseModel):
+    pandascore_id: Optional[int] = None # 👈 Pydantic agora enxerga o ID
     name: str
     acronym: Optional[str] = None
     image_url: Optional[str] = None
@@ -29,6 +30,7 @@ class PlayerSchema(BaseModel):
 
 class TeamDetailSchema(BaseModel):
     id: int
+    pandascore_id: Optional[int] = None
     name: str
     acronym: Optional[str] = None
     image_url: Optional[str] = None
