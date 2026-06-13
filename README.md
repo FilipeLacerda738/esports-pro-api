@@ -1,7 +1,9 @@
 # ⚙️ Esports Hub - API (Backend Service)
 
 <div align="center">
-
+  
+🇧🇷 Português | 🇺🇸 [English Version](./README.en.md)
+  
 ### Arquitetura de alta performance e resiliência para o ecossistema Esports Hub.
 
 [![Licença](https://img.shields.io/github/license/FilipeLacerda738/esports-pro-api?style=flat-square&logo=gnu&color=2B3137&labelColor=161B22)](LICENSE)

@@ -2,6 +2,8 @@
 
 <div align="center">
 
+🇺🇸 English | 🇧🇷 [Português](./README.md)
+
 ### High-performance and resilient architecture for the Esports Hub ecosystem.
 
 [![License](https://img.shields.io/github/license/FilipeLacerda738/esports-pro-api?style=flat-square\&logo=gnu\&color=2B3137\&labelColor=161B22)](LICENSE)
