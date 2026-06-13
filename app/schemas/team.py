@@ -3,7 +3,7 @@ from typing import Optional, List
 from datetime import datetime
 
 class TeamBase(BaseModel):
-    pandascore_id: Optional[int] = None # 👈 Pydantic agora enxerga o ID
+    pandascore_id: Optional[int] = None
     name: str
     acronym: Optional[str] = None
     image_url: Optional[str] = None
