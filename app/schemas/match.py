@@ -1,8 +1,8 @@
 from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
-from typing import Optional, List
-
+from typing import Optional, List, Dict, Any
 from app.schemas.team import TeamDetailSchema 
+from app.schemas.league import LeagueResponse 
 
 class TeamBasicInfo(BaseModel):
     id: int
@@ -10,13 +10,9 @@ class TeamBasicInfo(BaseModel):
     name: str
     acronym: Optional[str] = None
     image_url: Optional[str] = None
-    model_config = ConfigDict(from_attributes=True)
-
-class LeagueResponse(BaseModel):
-    id: int
-    pandascore_id: Optional[int] = None
-    name: str
-    image_url: Optional[str] = None
+    dark_mode_image_url: Optional[str] = None 
+    location: Optional[str] = None
+    
     model_config = ConfigDict(from_attributes=True)
 
 class MatchResponse(BaseModel):
@@ -29,6 +25,9 @@ class MatchResponse(BaseModel):
     team_a_score: int
     team_b_score: int
     stream_url: Optional[str] = None
+    streams: Optional[List[Dict[str, Any]]] = None 
+    tier: Optional[str] = None 
+    prizepool: Optional[str] = None 
 
     team_a: Optional[TeamBasicInfo] = None
     team_b: Optional[TeamBasicInfo] = None
@@ -55,8 +54,11 @@ class MatchDetailResponse(BaseModel):
     team_a_score: int
     team_b_score: int
     stream_url: Optional[str] = None
-    league: Optional[LeagueResponse] = None
+    streams: Optional[List[Dict[str, Any]]] = None 
+    tier: Optional[str] = None
+    prizepool: Optional[str] = None 
     
+    league: Optional[LeagueResponse] = None
     team_a: Optional[TeamDetailSchema] = None
     team_b: Optional[TeamDetailSchema] = None
     

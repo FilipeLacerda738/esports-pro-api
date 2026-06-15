@@ -11,6 +11,10 @@ class Team(Base):
   name = Column(String(100), nullable=False, index=True)
   acronym = Column(String(10), nullable=True)
   image_url = Column(String, nullable=True)
+
+  dark_mode_image_url = Column(String, nullable=True)
+  location = Column(String(5), nullable=True)
+  
   game = Column(String(50), nullable=False)
 
   created_at = Column(DateTime(timezone=True), server_default=func.now())

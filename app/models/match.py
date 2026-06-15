@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.base import Base
@@ -22,7 +22,12 @@ class Match(Base):
 
   begin_at = Column(DateTime(timezone=True), nullable=True)
   
-  stream_url = Column(String, nullable=True)
+  stream_url = Column(String, nullable=True) 
+  streams = Column(JSON, nullable=True)
+  
+  tier = Column(String(10), nullable=True) 
+  prizepool = Column(String, nullable=True)
+
   number_of_games = Column(Integer, server_default="3", nullable=True)
 
   created_at = Column(DateTime(timezone=True), server_default=func.now())

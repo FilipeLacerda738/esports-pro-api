@@ -9,5 +9,7 @@ class League(Base):
     pandascore_id = Column(Integer, unique=True, index=True, nullable=True)
     name = Column(String, nullable=False)
     image_url = Column(String, nullable=True)  
+    
+    dark_mode_image_url = Column(String, nullable=True) 
 
     matches = relationship("Match", back_populates="league")

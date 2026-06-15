@@ -7,6 +7,8 @@ class TeamBase(BaseModel):
     name: str
     acronym: Optional[str] = None
     image_url: Optional[str] = None
+    dark_mode_image_url: Optional[str] = None 
+    location: Optional[str] = None 
     game: str
 
 class TeamCreate(TeamBase):
@@ -34,6 +36,8 @@ class TeamDetailSchema(BaseModel):
     name: str
     acronym: Optional[str] = None
     image_url: Optional[str] = None
+    dark_mode_image_url: Optional[str] = None
+    location: Optional[str] = None 
     players: List[PlayerSchema] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
