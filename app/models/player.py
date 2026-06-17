@@ -11,9 +11,7 @@ class Player(Base):
     first_name = Column(String, nullable=True) 
     last_name = Column(String, nullable=True) 
     image_url = Column(String, nullable=True) 
-    
-    
+
     team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"))
-    
-    
+
     team = relationship("Team", back_populates="players")

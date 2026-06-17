@@ -21,7 +21,7 @@ from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.core.config import settings
-from app.api.v1 import teams, matches, system, testes
+from app.api.v1 import teams, matches, system, testes, auth
 from app.core.security import get_api_key 
 from app.core.logger import logger
 
@@ -62,6 +62,12 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+app.include_router(
+    auth.router, 
+    prefix="/api/v1/auth", 
+    tags=["Authentication"]
 )
 
 app.include_router(

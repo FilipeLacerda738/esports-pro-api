@@ -7,6 +7,7 @@ from app.models.match import Match
 from app.models.league import League 
 from app.models.map import GameMap
 from app.models.player import Player
+from app.models.user import User
 from app.services.pandascore.client import get_team_roster
 
 async def sync_team_players(team_id_pandascore: int, team_id_db: int, game: str, db: AsyncSession):

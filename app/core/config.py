@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List
 
 class Settings(BaseSettings):
@@ -9,8 +9,8 @@ class Settings(BaseSettings):
     API_ACCESS_KEY: str
     ENVIRONMENT: str = "development"
     BACKEND_CORS_ORIGINS: List[str] = ["*"]
+    SECRET_KEY: str
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()

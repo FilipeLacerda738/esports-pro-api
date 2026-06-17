@@ -21,6 +21,7 @@ import app.models.match
 from app.models.league import League
 from app.models.player import Player
 from app.models.map import GameMap
+from app.models.user import User
 
 config = context.config
 
