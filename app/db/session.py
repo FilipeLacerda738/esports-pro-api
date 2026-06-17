@@ -2,21 +2,25 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 
-
 url_banco = settings.DATABASE_URL
-
 
 if url_banco.startswith("postgresql://"):
     url_banco = url_banco.replace("postgresql://", "postgresql+asyncpg://", 1)
 elif url_banco.startswith("postgres://"):
     url_banco = url_banco.replace("postgres://", "postgresql+asyncpg://", 1)
 
-
 if "?sslmode=require" in url_banco:
     url_banco = url_banco.replace("?sslmode=require", "")
 
-
-engine = create_async_engine(url_banco, echo=False, future=True)
+engine = create_async_engine(
+    url_banco, 
+    echo=False, 
+    future=True,
+    connect_args={
+        "prepared_statement_cache_size": 0,
+        "statement_cache_size": 0
+    }
+)
 
 SessionLocal = sessionmaker(
     autocommit=False,
