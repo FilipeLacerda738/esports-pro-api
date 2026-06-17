@@ -36,8 +36,8 @@ scheduler = AsyncIOScheduler()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    scheduler.add_job(update_live_matches_task, 'interval', minutes=1)
-    scheduler.add_job(update_static_matches_task, 'interval', minutes=30)
+    scheduler.add_job(update_live_matches_task, 'interval', minutes=2)
+    scheduler.add_job(update_static_matches_task, 'interval', minutes=60)
     scheduler.add_job(cleanup_old_matches_task, 'cron', hour=5, minute=0)
     scheduler.add_job(resolve_stuck_matches_task, 'interval', minutes=30)
     
