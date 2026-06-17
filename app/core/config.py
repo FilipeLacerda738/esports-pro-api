@@ -7,9 +7,6 @@ class Settings(BaseSettings):
     PANDASCORE_API_KEY: str
     PANDASCORE_KEYS: str = ""
     API_ACCESS_KEY: str
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
-    POSTGRES_DB: str
     ENVIRONMENT: str = "development"
     BACKEND_CORS_ORIGINS: List[str] = ["*"]
 
