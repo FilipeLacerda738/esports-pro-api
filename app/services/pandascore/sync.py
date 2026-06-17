@@ -228,3 +228,5 @@ async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
                     winner_id=winner_id
                 )
                 db.add(new_game)
+
+    await db.commit()
