@@ -21,7 +21,7 @@ from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.core.config import settings
-from app.api.v1 import teams, matches, system, testes
+from app.api.v1 import teams, matches, system, testes, auth
 from app.core.security import get_api_key 
 from app.core.logger import logger
 
@@ -37,9 +37,9 @@ scheduler = AsyncIOScheduler()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     scheduler.add_job(update_live_matches_task, 'interval', minutes=1)
-    scheduler.add_job(update_static_matches_task, 'interval', minutes=30)
-    scheduler.add_job(cleanup_old_matches_task, 'cron', hour=5, minute=0)
-    scheduler.add_job(resolve_stuck_matches_task, 'interval', minutes=30)
+    scheduler.add_job(update_static_matches_task, 'interval', minutes=45)
+    scheduler.add_job(cleanup_old_matches_task, 'cron', hour=6, minute=30)
+    scheduler.add_job(resolve_stuck_matches_task, 'interval', minutes=45)
     
     scheduler.start()
     
@@ -62,6 +62,12 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+app.include_router(
+    auth.router, 
+    prefix="/api/v1/auth", 
+    tags=["Authentication"]
 )
 
 app.include_router(
