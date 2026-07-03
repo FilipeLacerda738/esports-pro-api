@@ -210,6 +210,6 @@ The eSports ecosystem evolves rapidly, and there is always room for new ideas.
 
 # License
 
-Distributed under the MIT License.
+Distributed under the GNU General Public License v3.0 License.
 
 See the `LICENSE` file for more information.
