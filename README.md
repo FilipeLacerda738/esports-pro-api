@@ -199,16 +199,6 @@ O ecossistema de eSports cresce rapidamente e sempre existe espaço para novas i
 
 ---
 
-# Roadmap
-
-* [ ] Implementação de WebSockets para atualizações em tempo real
-* [ ] Cache de API utilizando Redis
-* [ ] Desacoplamento dos workers com Celery
-* [ ] Sistema de autenticação JWT
-* [ ] Monitoramento e métricas com Prometheus + Grafana
-
----
-
 # Licença
 
 Distribuído sob a licença GNU General Public License v3.0.
