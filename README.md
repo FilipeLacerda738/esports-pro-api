@@ -209,6 +209,6 @@ O ecossistema de eSports cresce rapidamente e sempre existe espaço para novas i
 
 # Licença
 
-Distribuído sob a licença MIT.
+Distribuído sob a licença GNU General Public License v3.0.
 
 Veja o arquivo `LICENSE` para mais informações.
