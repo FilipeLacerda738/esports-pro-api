@@ -127,16 +127,18 @@ PROJECT_NAME="Esports API"
 # O app Android deve enviar esta mesma chave no header
 API_ACCESS_KEY="sua_chave_aleatoria_aqui"
 
-# Banco de Dados
-POSTGRES_USER="seu_usuario"
-POSTGRES_PASSWORD="sua_senha"
-POSTGRES_DB="esports_db"
-
 # Obrigatório usar o prefixo +asyncpg para o SQLAlchemy
 DATABASE_URL="postgresql+asyncpg://usuario:senha@localhost:5432/esports_db"
 
 # PandaScore
 PANDASCORE_API_KEY="sua_chave_da_pandascore"
+PANDASCORE_KEYS="sua_chave_da_pandascore1,sua_chave_da_pandascore2,sua_chave_da_pandascore3"
+
+# ambiente de desenvolvimento
+ENVIRONMENT=ambiente
+
+# segurança
+BACKEND_CORS_ORIGINS=["http://localhost:3000", "http://localhost:8000", "*"]
 ```
 
 ---
