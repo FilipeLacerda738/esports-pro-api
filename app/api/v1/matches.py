@@ -20,6 +20,7 @@ async def get_matches(
     limit: int = Query(15, ge=1, le=100, description="Quantidade de itens por página (máximo 100)"),
     game: Optional[str] = None,   
     status: Optional[str] = None, 
+    tier: Optional[str] = None, 
     data_calendario: date = None,
     db: AsyncSession = Depends(get_db)
 ):
@@ -27,6 +28,9 @@ async def get_matches(
 
     if game:
         query = query.filter(Match.game == game.upper())
+
+    if tier:
+        query = query.filter(Match.tier.ilike(tier))
 
     if status:
         query = query.filter(Match.status == status)
