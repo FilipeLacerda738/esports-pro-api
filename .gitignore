@@ -1,4 +1,10 @@
 venv/
+.venv/
+.pytest_cache/
+.env.*
+!.env.example
+security-audit.json
 __pycache__/
 .env
+*.env
 logs/

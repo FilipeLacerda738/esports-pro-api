@@ -100,7 +100,7 @@ pip install -r requirements.txt
 ### 4. Inicie o servidor local
 
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000 --no-proxy-headers
 ```
 
 ---
@@ -115,31 +115,18 @@ http://localhost:8000/docs
 
 # Variáveis de Ambiente (.env)
 
-Crie um arquivo `.env` na raiz do projeto contendo as seguintes variáveis.
+Copie [.env.example](.env.example) para `.env` antes de iniciar o servidor e preencha suas credenciais.
+Gere duas chaves diferentes com `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
+`API_ACCESS_KEY` é usada pelo aplicativo para leitura; `SECRET_KEY` fica exclusivamente no servidor.
+Nunca envie `.env` para o GitHub.
 
-> ⚠️ Nunca envie esse arquivo para o GitHub.
+Para desenvolvimento local: `ENVIRONMENT=development`, `DATABASE_SSL=false` apenas com banco em localhost
+e `RATE_LIMIT_STORAGE_URI=memory://`. Para Android, `BACKEND_CORS_ORIGINS=[]`.
+Para navegador, informe origens exatas, sem `*`.
 
-```ini
-# Configurações do Projeto
-PROJECT_NAME="Esports API"
-
-# Chave de Proteção
-# O app Android deve enviar esta mesma chave no header
-API_ACCESS_KEY="sua_chave_aleatoria_aqui"
-
-# Obrigatório usar o prefixo +asyncpg para o SQLAlchemy
-DATABASE_URL="postgresql+asyncpg://usuario:senha@localhost:5432/esports_db"
-
-# PandaScore
-PANDASCORE_API_KEY="sua_chave_da_pandascore"
-PANDASCORE_KEYS="sua_chave_da_pandascore1,sua_chave_da_pandascore2,sua_chave_da_pandascore3"
-
-# ambiente de desenvolvimento
-ENVIRONMENT=ambiente
-
-# segurança
-BACKEND_CORS_ORIGINS=["http://localhost:3000", "http://localhost:8000", "*"]
-```
+Em produção, são obrigatórios ambiente explícito e TLS verificado no banco. Redis compartilhado
+só é necessário ao usar mais de um worker ou réplica. Leia [SECURITY.md](SECURITY.md) antes do deploy: contém as variáveis,
+limites, configuração de proxy, rotação de chaves e mudanças de contrato da API.
 
 ---
 
@@ -173,21 +160,16 @@ Environment
 
 ---
 
-### 4. Configuração SSL para bancos remotos
+### 4. TLS e limites em produção
 
-Caso utilize Neon, Supabase ou outro banco remoto, adicione:
+Use `DATABASE_SSL=true`. A conexão verifica certificado e hostname; configure `DATABASE_CA_FILE`
+se o provedor exigir uma CA específica. Apenas adicionar `sslmode=require` à URL não substitui
+essa configuração. Alembic usa a mesma política TLS.
 
-```txt
-?sslmode=require
-```
-
-ao final da `DATABASE_URL`.
-
-Exemplo:
-
-```txt
-postgresql+asyncpg://usuario:senha@host/db?sslmode=require
-```
+Com o worker único atual, `RATE_LIMIT_STORAGE_URI=memory://` preserva o deploy sem nova credencial.
+Antes de escalar, configure `rediss://usuario:senha@host:porta/0`. Use CORS com origens HTTPS
+exatas e um proxy HTTPS confiável. Execute um worker enquanto o agendador estiver embutido.
+Veja o procedimento completo em [SECURITY.md](SECURITY.md).
 
 ---
 

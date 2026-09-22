@@ -21,9 +21,11 @@ from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.core.config import settings
-from app.api.v1 import teams, matches, system, testes
+from app.api.v1 import auth, teams, matches, system
 from app.core.security import get_api_key 
 from app.core.logger import logger
+from app.core.rate_limit import RequestProtectionMiddleware, storage
+from starlette.concurrency import run_in_threadpool
 
 from app.jobs.tasks import (
     update_live_matches_task,
@@ -36,6 +38,8 @@ scheduler = AsyncIOScheduler()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if not await run_in_threadpool(storage.check):
+        raise RuntimeError("Rate limit storage is unavailable")
     scheduler.add_job(update_live_matches_task, 'interval', minutes=1)
     scheduler.add_job(update_static_matches_task, 'interval', minutes=45)
     scheduler.add_job(cleanup_old_matches_task, 'cron', hour=6, minute=30)
@@ -52,16 +56,22 @@ async def lifespan(app: FastAPI):
     scheduler.shutdown()
     logger.info("Desligando e encerrando agendador.")
 
-app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
+app = FastAPI(
+    title=settings.PROJECT_NAME, lifespan=lifespan,
+    docs_url="/docs" if settings.ENVIRONMENT == "development" else None,
+    redoc_url=None,
+    openapi_url="/openapi.json" if settings.ENVIRONMENT == "development" else None,
+)
 
-origins = getattr(settings, "BACKEND_CORS_ORIGINS", ["*"])
+app.add_middleware(RequestProtectionMiddleware)
+origins = settings.BACKEND_CORS_ORIGINS
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT"],
+    allow_headers=["Authorization", "Content-Type", "X-API-Key"],
 )
 
 app.include_router(
@@ -84,14 +94,7 @@ app.include_router(
     tags=["System"]
 )
 
-if getattr(settings, "ENVIRONMENT", "production") == "development":
-    app.include_router(
-        testes.router, 
-        prefix="/api/v1/test", 
-        tags=["Test (Dev Only)"],
-        dependencies=[Depends(get_api_key)]
-    )
-    logger.info("Rotas de Debug habilitadas para ambiente de desenvolvimento.")
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 
 @app.get("/")
 async def root():
