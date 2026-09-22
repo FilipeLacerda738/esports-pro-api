@@ -1,4 +1,0 @@
--r requirements.txt
-aiosqlite==0.22.1
-trustme==1.2.1
-pip-audit==2.10.1

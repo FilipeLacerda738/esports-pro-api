@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
@@ -15,7 +15,6 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 load_dotenv()
 
 from app.core.config import settings
-from app.db.connection import database_connection_options
 from app.db.base import Base
 import app.models.team
 import app.models.match
@@ -27,7 +26,7 @@ from app.models.user import User
 config = context.config
 
 
-database_url, connection_args = database_connection_options(settings)
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 
 if config.config_file_name is not None:
@@ -38,7 +37,7 @@ target_metadata = Base.metadata
 
 def run_migrations_offline() -> None:
     
-    url = database_url
+    url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -59,8 +58,10 @@ def do_run_migrations(connection: Connection) -> None:
 
 async def run_async_migrations() -> None:
     
-    connectable = create_async_engine(
-        database_url, connect_args=connection_args, poolclass=pool.NullPool,
+    connectable = async_engine_from_config(
+        config.get_section(config.config_ini_section, {}),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
     )
 
     async with connectable.connect() as connection:

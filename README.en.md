@@ -99,7 +99,7 @@ pip install -r requirements.txt
 ### 4. Start the local server
 
 ```bash
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000 --no-proxy-headers
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ---
@@ -114,17 +114,29 @@ http://localhost:8000/docs
 
 # Environment Variables (.env)
 
-Copy [.env.example](.env.example) to `.env` before starting the server and fill in your credentials.
-Generate two different keys using `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
-`API_ACCESS_KEY` is the mobile read key; `SECRET_KEY` must remain server-only. Never commit `.env`.
+Create a `.env` file in the project root containing the following variables.
 
-Local development uses `ENVIRONMENT=development`, `DATABASE_SSL=false` only for a loopback database,
-and `RATE_LIMIT_STORAGE_URI=memory://`. Android-only clients need `BACKEND_CORS_ORIGINS=[]`.
-For browsers, list exact origins without wildcards.
+> ⚠️ Never commit this file to GitHub.
 
-Production requires an explicit environment and verified database TLS. Shared Redis rate limiting
-is required only when running multiple workers or replicas.
-Read [SECURITY.md](SECURITY.md) for deployment instructions and API contract changes.
+```ini
+# Project Settings
+PROJECT_NAME="Esports API"
+
+# Protection Key
+# The Android app must send this same key in the request header
+API_ACCESS_KEY="your_random_key_here"
+
+# Database
+POSTGRES_USER="your_user"
+POSTGRES_PASSWORD="your_password"
+POSTGRES_DB="esports_db"
+
+# SQLAlchemy requires the +asyncpg prefix
+DATABASE_URL="postgresql+asyncpg://user:password@localhost:5432/esports_db"
+
+# PandaScore
+PANDASCORE_API_KEY="your_pandascore_key"
+```
 
 ---
 
@@ -160,16 +172,21 @@ section.
 
 ---
 
-### 4. Production TLS and rate limits
+### 4. SSL configuration for remote databases
 
-Set `DATABASE_SSL=true`. Certificates and hostnames are verified; use `DATABASE_CA_FILE` if your
-provider needs a specific CA. Alembic uses the same policy. A `sslmode=require` URL parameter
-alone is not a replacement for this configuration.
+If you are using Neon, Supabase, or another remote database provider, append:
 
-The current single worker can keep `RATE_LIMIT_STORAGE_URI=memory://` without a new credential.
-Before scaling, configure `rediss://user:password@host:port/0`. Use exact HTTPS CORS origins and
-a trusted HTTPS reverse proxy. Use one worker while the scheduler is embedded.
-See [SECURITY.md](SECURITY.md) for the complete deployment procedure.
+```txt
+?sslmode=require
+```
+
+to the end of the `DATABASE_URL`.
+
+Example:
+
+```txt
+postgresql+asyncpg://user:password@host/db?sslmode=require
+```
 
 ---
 
