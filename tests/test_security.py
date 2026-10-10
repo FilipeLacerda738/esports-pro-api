@@ -253,13 +253,17 @@ async def test_startup_runs_automatic_jobs_without_admin_key(monkeypatch):
 
 
 def test_upgrade_preserves_legacy_users():
+    admin_url, admin_args = database_options(settings.MIGRATION_DATABASE_URL)
     async def seed_and_count(seed=False):
-        async with engine.begin() as conn:
-            if seed:
-                await conn.execute(text("INSERT INTO users (id, username, email) VALUES ('preserved', 'preserved', 'preserved@example.test') ON CONFLICT DO NOTHING"))
-            count = (await conn.execute(text("SELECT count(*) FROM users WHERE id='preserved'"))).scalar_one()
-        await engine.dispose()
-        return count
+        admin_engine = create_async_engine(admin_url, connect_args=admin_args)
+        try:
+            async with admin_engine.begin() as conn:
+                if seed:
+                    await conn.execute(text("INSERT INTO users (id, username, email) VALUES ('preserved', 'preserved', 'preserved@example.test') ON CONFLICT DO NOTHING"))
+                count = (await conn.execute(text("SELECT count(*) FROM users WHERE id='preserved'"))).scalar_one()
+            return count
+        finally:
+            await admin_engine.dispose()
     asyncio.run(seed_and_count(True))
     config = Config("alembic.ini")
     command.stamp(config, "b5edc4fe6d9a")

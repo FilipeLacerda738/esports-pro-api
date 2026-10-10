@@ -13,6 +13,7 @@ import httpx
 ROOT = Path(__file__).resolve().parents[1]
 BASE_URL = "http://127.0.0.1:58081"
 LOCAL_DSN = "postgresql://postgres:local-security-test-only@127.0.0.1:55439/esports_security_test?sslmode=require"
+LOCAL_BACKEND_DSN = "postgresql+asyncpg://esports_backend:local-backend-test-only@127.0.0.1:55439/esports_security_test?sslmode=require"
 
 
 async def prepare_local_data():
@@ -74,7 +75,7 @@ def main():
     selected = keys[2] if len(keys) >= 3 else keys[0]
     task_env = dict(os.environ)
     task_env.update(
-        DATABASE_URL=LOCAL_DSN.replace("postgresql://", "postgresql+asyncpg://", 1),
+        DATABASE_URL=LOCAL_BACKEND_DSN, MIGRATION_DATABASE_URL="",
         API_ACCESS_KEY=api_key, ADMIN_API_KEY="", ENVIRONMENT="production",
         PANDASCORE_API_KEY=selected, PANDASCORE_KEYS=selected,
         PYTHONUTF8="1",

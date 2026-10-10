@@ -26,7 +26,7 @@ from app.models.map import GameMap
 config = context.config
 
 
-database_url, connection_args = database_options(settings.DATABASE_URL)
+database_url, connection_args = database_options(settings.MIGRATION_DATABASE_URL or settings.DATABASE_URL)
 config.set_main_option("sqlalchemy.url", database_url.render_as_string(hide_password=False).replace("%", "%%"))
 
 

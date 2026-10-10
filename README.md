@@ -220,6 +220,37 @@ recuperadas; a revisão `8a6fe6b3f299` deixou de apagar usuários. A tabela lega
 `users` é ignorada no autogenerate para evitar sua exclusão. Nenhuma migração
 é executada automaticamente durante a inicialização da API.
 
+O backend usa o papel `esports_backend`, sem privilégios administrativos,
+propriedade de tabelas ou permissão para ignorar RLS. Ele pode consultar,
+inserir e atualizar as cinco tabelas do aplicativo e excluir partidas para
+executar as rotinas existentes. Não pode alterar o schema, truncar tabelas,
+acessar `alembic_version` ou excluir times, ligas, jogadores e mapas diretamente.
+As migrações usam uma conexão administrativa separada em
+`MIGRATION_DATABASE_URL`; não configure essa credencial no serviço do Render.
+
+O script `security/harden_database.sql` bloqueia o acesso de `anon`,
+`authenticated` e `PUBLIC` ao schema `public`, remove seus privilégios de
+tabelas, sequências e funções, corrige os privilégios padrão de `postgres`
+e habilita RLS nas seis tabelas do projeto. Somente o papel do backend tem
+políticas de acesso nas tabelas do aplicativo. Os privilégios padrão internos
+de `supabase_admin` são gerenciados pelo Supabase; o bloqueio do schema impede
+que esses privilégios exponham novas tabelas aos papéis públicos.
+
+O provisionamento de produção é manual e exige o projeto explicitamente:
+
+```powershell
+.venv\Scripts\python.exe security/provision_backend.py --project-ref SEU_PROJECT_REF
+```
+
+Esse comando exige a conexão administrativa do projeto revisado, cria uma
+credencial exclusiva para o banco sem modificar as chaves do app ou PandaScore,
+salva a nova conexão no arquivo ignorado `.env.backend` e registra as permissões
+anteriores em `logs/database-security-before.json`. Aplica as alterações numa
+transação com limites de espera por locks e verifica a conexão restrita somente
+com leituras. Não é executado durante o startup ou deploy. Revise schema e
+políticas existentes antes de executá-lo; o comando interrompe a operação se
+encontrar uma configuração diferente da revisada.
+
 ## Testes locais
 
 Use um PostgreSQL descartável em `127.0.0.1:55439`, banco
@@ -235,6 +266,8 @@ importar a aplicação e limpam exclusivamente esse banco local.
 
 A suíte cobre as consultas do Android, permissões de escrita, limites, caches,
 sincronização, inicialização dos jobs e preservação de dados nas migrações.
+As consultas e escritas da aplicação usam o papel restrito também nos testes;
+somente a preparação do banco descartável e as migrações usam `postgres`.
 As chamadas externas são simuladas na suíte; testes adicionais do backend
 rodando podem usar a chave autorizada da PandaScore e um PostgreSQL local com
 TLS habilitado. Nunca aponte os testes ou scripts de reset para o banco online.
