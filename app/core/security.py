@@ -1,7 +1,4 @@
-from datetime import datetime, timedelta, timezone
-from passlib.context import CryptContext
-import jwt
-import hashlib
+import secrets
 from fastapi import Security, HTTPException, status
 from fastapi.security.api_key import APIKeyHeader
 from app.core.config import settings
@@ -9,7 +6,7 @@ from app.core.config import settings
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 async def get_api_key(api_key: str = Security(api_key_header)):
-    if api_key == settings.API_ACCESS_KEY:
+    if api_key and secrets.compare_digest(api_key.encode(), settings.API_ACCESS_KEY.encode()):
         return api_key
     
     raise HTTPException(
@@ -17,15 +14,10 @@ async def get_api_key(api_key: str = Security(api_key_header)):
         detail="Acesso Negado: Chave de API inválida ou ausente.",
     )
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    pre_hash = hashlib.sha256(plain_password.encode('utf-8')).hexdigest()
-    return pwd_context.verify(pre_hash, hashed_password)
-
-def get_password_hash(password: str) -> str:
-    pre_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
-    return pwd_context.hash(pre_hash)
+async def get_admin_key(api_key: str = Security(api_key_header)):
+    # Administracao desabilitada sem chave exclusiva configurada.
+    if (settings.ADMIN_API_KEY and api_key
+            and settings.ADMIN_API_KEY != settings.API_ACCESS_KEY
+            and secrets.compare_digest(api_key.encode(), settings.ADMIN_API_KEY.encode())):
+        return api_key
+    raise HTTPException(status_code=403, detail="Administrative access required")

@@ -203,7 +203,6 @@ The eSports ecosystem evolves rapidly, and there is always room for new ideas.
 * [ ] WebSocket implementation for real-time updates
 * [ ] API caching using Redis
 * [ ] Worker decoupling with Celery
-* [ ] JWT authentication system
 * [ ] Monitoring and metrics with Prometheus + Grafana
 
 ---

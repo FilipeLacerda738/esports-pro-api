@@ -23,6 +23,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.core.config import settings
 from app.api.v1 import teams, matches, system, testes
 from app.core.security import get_api_key 
+from app.core.rate_limit import RateLimitMiddleware
 from app.core.logger import logger
 
 from app.jobs.tasks import (
@@ -53,6 +54,7 @@ async def lifespan(app: FastAPI):
     logger.info("Desligando e encerrando agendador.")
 
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
+app.add_middleware(RateLimitMiddleware)
 
 origins = getattr(settings, "BACKEND_CORS_ORIGINS", ["*"])
 
@@ -68,14 +70,12 @@ app.include_router(
     teams.router, 
     prefix="/api/v1/teams", 
     tags=["Teams"],
-    dependencies=[Depends(get_api_key)] 
 )
 
 app.include_router(
     matches.router, 
     prefix="/api/v1/matches", 
     tags=["Matches"],
-    dependencies=[Depends(get_api_key)]
 )
 
 app.include_router(

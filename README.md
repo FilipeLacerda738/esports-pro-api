@@ -191,6 +191,69 @@ postgresql+asyncpg://usuario:senha@host/db?sslmode=require
 
 ---
 
+# Segurança e operação
+
+A chave `API_ACCESS_KEY` existente continua autorizando consultas de times,
+partidas e detalhes, com os mesmos formatos de resposta utilizados pelo Android.
+As operações `POST /api/v1/teams/` e `POST /api/v1/matches/sync-now` exigem uma
+`ADMIN_API_KEY` exclusiva do servidor, enviada no header `X-API-Key`. Essa chave
+é opcional: quando ausente ou igual à chave do aplicativo, as escritas retornam
+403. Os jobs automáticos continuam funcionando sem ela. Nunca inclua a chave
+administrativa no Android.
+
+As consultas têm limite de 1200 requisições por minuto por IP; escritas têm
+limite de 20 por minuto por IP. Há também um limite de 12000 requisições por
+minuto para a instância. Excesso retorna 429 com `Retry-After: 60`. Clientes
+que compartilham um IP compartilham os limites. OPTIONS e health checks são
+isentos. A versão do app é cacheada por 60 segundos e o health check bem-sucedido
+por 5 segundos. Limites e caches são locais, adequados ao deploy com um worker
+e uma instância, sem depender de Redis.
+
+Conexões remotas sem política SSL explícita exigem TLS. O parâmetro `sslmode`
+é traduzido para o argumento `ssl` do asyncpg: `require` exige criptografia,
+enquanto `verify-full` também verifica certificado e hostname. Políticas
+explícitas são preservadas. Isso segue a [orientação de conexão do Supabase](https://supabase.com/docs/guides/database/connecting-to-postgres).
+
+O sistema de contas, login, cadastro, JWT e hashing de senhas foi removido.
+As migrações históricas foram preservadas e as revisões ausentes foram
+recuperadas; a revisão `8a6fe6b3f299` deixou de apagar usuários. A tabela legada
+`users` é ignorada no autogenerate para evitar sua exclusão. Nenhuma migração
+é executada automaticamente durante a inicialização da API.
+
+## Testes locais
+
+Use um PostgreSQL descartável em `127.0.0.1:55439`, banco
+`esports_security_test`, usuário `postgres` e senha de teste
+`local-security-test-only`. Para executar a suíte, esse servidor local deve
+estar com SSL desabilitado: um teste verifica que `sslmode=require` rejeita
+servidores sem TLS. Os testes sobrescrevem as variáveis de ambiente antes de
+importar a aplicação e limpam exclusivamente esse banco local.
+
+```powershell
+.venv\Scripts\python.exe -m pytest tests -q
+```
+
+A suíte cobre as consultas do Android, permissões de escrita, limites, caches,
+sincronização, inicialização dos jobs e preservação de dados nas migrações.
+As chamadas externas são simuladas na suíte; testes adicionais do backend
+rodando podem usar a chave autorizada da PandaScore e um PostgreSQL local com
+TLS habilitado. Nunca aponte os testes ou scripts de reset para o banco online.
+
+Depois da suíte, habilite TLS no mesmo PostgreSQL local e execute:
+
+```powershell
+.venv\Scripts\python.exe tests/run_local_backend.py
+```
+
+Esse teste inicia Uvicorn em `127.0.0.1:58081`, usa a chave atual do app e
+somente a terceira chave PandaScore do `.env` (ou a primeira, se não houver
+três). A conexão do banco é sempre substituída pelo endereço local. Ele
+valida consultas HTTP, bloqueio de escritas, 50 leituras simultâneas, limites,
+health checks e um ciclo agendado do job ao vivo. O processo local é encerrado
+ao final; os logs ficam em `logs/`, fora do Git.
+
+---
+
 # Contribuições
 
 Sinta-se à vontade para fazer um fork do projeto e propor melhorias.

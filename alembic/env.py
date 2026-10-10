@@ -15,18 +15,19 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 load_dotenv()
 
 from app.core.config import settings
+from app.db.connection import database_options
 from app.db.base import Base
 import app.models.team
 import app.models.match
 from app.models.league import League
 from app.models.player import Player
 from app.models.map import GameMap
-from app.models.user import User
 
 config = context.config
 
 
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+database_url, connection_args = database_options(settings.DATABASE_URL)
+config.set_main_option("sqlalchemy.url", database_url.render_as_string(hide_password=False).replace("%", "%%"))
 
 
 if config.config_file_name is not None:
@@ -34,6 +35,11 @@ if config.config_file_name is not None:
 
 
 target_metadata = Base.metadata
+
+
+def include_object(obj, name, type_, reflected, compare_to):
+    # A API nao gerencia mais usuarios; autogenerate nao deve apagar dados legados.
+    return not (type_ == "table" and name == "users" and reflected and compare_to is None)
 
 def run_migrations_offline() -> None:
     
@@ -43,6 +49,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -50,7 +57,7 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(connection=connection, target_metadata=target_metadata, include_object=include_object)
 
     with context.begin_transaction():
         context.run_migrations()
@@ -62,6 +69,7 @@ async def run_async_migrations() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=connection_args,
     )
 
     async with connectable.connect() as connection:

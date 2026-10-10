@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     PANDASCORE_API_KEY: str
     PANDASCORE_KEYS: str = ""
     API_ACCESS_KEY: str
+    ADMIN_API_KEY: str = ""
     ENVIRONMENT: str = "development"
     BACKEND_CORS_ORIGINS: List[str] = ["*"]
 
