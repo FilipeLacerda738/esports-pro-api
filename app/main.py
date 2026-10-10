@@ -15,14 +15,13 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>."""
 
 import asyncio
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.core.config import settings
 from app.api.v1 import teams, matches, system, testes
-from app.core.security import get_api_key 
 from app.core.rate_limit import RateLimitMiddleware
 from app.core.logger import logger
 
@@ -89,7 +88,6 @@ if getattr(settings, "ENVIRONMENT", "production") == "development":
         testes.router, 
         prefix="/api/v1/test", 
         tags=["Test (Dev Only)"],
-        dependencies=[Depends(get_api_key)]
     )
     logger.info("Rotas de Debug habilitadas para ambiente de desenvolvimento.")
 

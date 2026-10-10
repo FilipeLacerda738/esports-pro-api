@@ -166,6 +166,48 @@ def test_login_and_registration_removed():
     assert not any("/auth/" in route.path for route in app.routes if hasattr(route, "path"))
 
 
+def test_environment_defaults_to_production(monkeypatch):
+    from app.core.config import Settings
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
+    assert Settings(_env_file=None).ENVIRONMENT == "production"
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    assert Settings(_env_file=None).ENVIRONMENT == "development"
+
+
+@pytest.mark.asyncio
+async def test_debug_routes_absent_in_production(client):
+    path = "/api/v1/test/pandascore-raw-match/123"
+    for key in ("local-app-key", "local-admin-key"):
+        assert (await client.get(path, headers={"X-API-Key": key})).status_code == 404
+    assert not any(route.path.startswith("/api/v1/test/") for route in app.routes if hasattr(route, "path"))
+
+
+@pytest.mark.asyncio
+async def test_development_debug_requires_distinct_admin_key(monkeypatch):
+    from fastapi import FastAPI
+    from app.api.v1 import testes
+    debug_app = FastAPI()
+    debug_app.include_router(testes.router, prefix="/api/v1/test")
+    response = httpx.Response(200, json={"id": 123}, request=httpx.Request("GET", "https://api.pandascore.co/matches/123"))
+    upstream = AsyncMock(return_value=response)
+    monkeypatch.setattr(httpx.AsyncClient, "get", upstream)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=debug_app), base_url="http://local") as debug_client:
+        for key in (None, "wrong", "local-app-key"):
+            headers = {"X-API-Key": key} if key else {}
+            result = await debug_client.request("GET", "/api/v1/test/pandascore-raw-match/123", headers=headers)
+            assert result.status_code == 403
+        upstream.assert_not_awaited()
+        result = await debug_client.request("GET", "/api/v1/test/pandascore-raw-match/123", headers={"X-API-Key": "local-admin-key"})
+        assert result.status_code == 200
+        assert result.json() == {"id": 123}
+        upstream.assert_awaited_once()
+        for key in ("", "local-app-key"):
+            monkeypatch.setattr(settings, "ADMIN_API_KEY", key)
+            result = await debug_client.request("GET", "/api/v1/test/pandascore-raw-match/123", headers={"X-API-Key": "local-app-key"})
+            assert result.status_code == 403
+        upstream.assert_awaited_once()
+
+
 @pytest.mark.asyncio
 async def test_background_sync_still_updates_local_matches(monkeypatch):
     monkeypatch.setattr(sync_service, "get_team_roster", AsyncMock(return_value=[]))

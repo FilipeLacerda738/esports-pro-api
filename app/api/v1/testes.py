@@ -1,8 +1,9 @@
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from app.core.config import settings
+from app.core.security import get_admin_key
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_admin_key)])
 
 @router.get("/pandascore-raw-match/{match_id}")
 async def test_get_raw_match(match_id: int):

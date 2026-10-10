@@ -45,6 +45,7 @@ async def check_http(api_key):
         assert (await client.post("/api/v1/teams/", headers=headers, json={"name": "Denied", "game": "CSGO"})).status_code == 403
         assert (await client.post("/api/v1/auth/login")).status_code == 404
         assert (await client.post("/api/v1/auth/register")).status_code == 404
+        assert (await client.get("/api/v1/test/pandascore-raw-match/123", headers=headers)).status_code == 404
         version = await client.get("/api/v1/system/app-version")
         assert version.status_code == 200
         assert set(version.json()) == {"version", "download_url", "release_notes"}
