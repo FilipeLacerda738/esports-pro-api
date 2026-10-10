@@ -23,7 +23,6 @@ from app.services.pandascore import sync as sync_service
 
 @pytest_asyncio.fixture
 async def client():
-    # ASGITransport nao executa lifespan: nenhum job acessa PandaScore nos testes.
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://local") as client:
         yield client
     await engine.dispose()

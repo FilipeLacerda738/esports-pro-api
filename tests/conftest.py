@@ -1,7 +1,5 @@
-"""Testes sempre usam o PostgreSQL descartavel local, nunca o .env de producao."""
 import os
 
-# Sobrescreva antes de importar a aplicacao ou o Alembic.
 os.environ["DATABASE_URL"] = "postgresql+asyncpg://postgres:local-security-test-only@127.0.0.1:55439/esports_security_test?sslmode=disable"
 os.environ["API_ACCESS_KEY"] = "local-app-key"
 os.environ["ADMIN_API_KEY"] = "local-admin-key"

@@ -1,4 +1,3 @@
-"""Limites locais para a instancia unica, sem depender de Redis externo."""
 from limits import parse
 from limits.storage import MemoryStorage
 from limits.strategies import FixedWindowRateLimiter
@@ -15,7 +14,6 @@ class RateLimitMiddleware:
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http" and scope["path"].startswith("/api/v1/"):
-            # Health checks nao podem causar falha no deploy por rate limiting.
             if scope["path"] != "/api/v1/system/health" and scope["method"] != "OPTIONS":
                 client = scope.get("client")
                 identity = client[0] if client else "unknown"

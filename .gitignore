@@ -1,10 +1,8 @@
-# Ambientes virtuais
 .venv/
 venv/
 env/
 ENV/
 
-# Cache e arquivos compilados do Python
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -12,7 +10,6 @@ __pycache__/
 .ruff_cache/
 .pytype/
 
-# Cobertura e empacotamento
 .coverage
 .coverage.*
 htmlcov/
@@ -22,19 +19,16 @@ dist/
 *.egg-info/
 .eggs/
 
-# Configuracoes locais e segredos
 .env
 .env.*
 !.env.example
 
-# Logs e bancos locais
 logs/
 *.log
 *.sqlite
 *.sqlite3
 *.db
 
-# Editores e sistema operacional
 .idea/
 .vscode/
 *.swp

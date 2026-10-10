@@ -38,7 +38,6 @@ target_metadata = Base.metadata
 
 
 def include_object(obj, name, type_, reflected, compare_to):
-    # A API nao gerencia mais usuarios; autogenerate nao deve apagar dados legados.
     return not (type_ == "table" and name == "users" and reflected and compare_to is None)
 
 def run_migrations_offline() -> None:

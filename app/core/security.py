@@ -15,7 +15,6 @@ async def get_api_key(api_key: str = Security(api_key_header)):
     )
 
 async def get_admin_key(api_key: str = Security(api_key_header)):
-    # Administracao desabilitada sem chave exclusiva configurada.
     if (settings.ADMIN_API_KEY and api_key
             and settings.ADMIN_API_KEY != settings.API_ACCESS_KEY
             and secrets.compare_digest(api_key.encode(), settings.ADMIN_API_KEY.encode())):

@@ -1,4 +1,3 @@
-"""Aceitacao HTTP com Uvicorn real, uma chave PandaScore e PostgreSQL local."""
 import asyncio
 import os
 from pathlib import Path
@@ -20,7 +19,6 @@ async def prepare_local_data():
     conn = await asyncpg.connect(LOCAL_DSN)
     try:
         assert await conn.fetchval("SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()")
-        # Evite que os jobs consultem a PandaScore com IDs sinteticos do teste.
         await conn.execute(
             "UPDATE matches SET status='not_started', begin_at=now()+interval '2 days' "
             "WHERE pandascore_id=987654321"
@@ -105,7 +103,6 @@ def main():
                 raise RuntimeError("Local backend did not become ready")
             print("Real Uvicorn startup with local PostgreSQL TLS and PandaScore key " + str(3 if len(keys) >= 3 else 1) + ": PASS", flush=True)
             asyncio.run(check_http(api_key))
-            # Observe o primeiro disparo agendado, alem dos jobs de startup.
             time.sleep(65)
             asyncio.run(check_limits_and_health())
             log.flush()
@@ -113,7 +110,6 @@ def main():
             try:
                 content = raw_log.decode("utf-8")
             except UnicodeDecodeError:
-                # Compatibilidade com stdout de Windows sem UTF-8 habilitado.
                 content = raw_log.decode("cp1252")
             assert "Buscando atualizações AO VIVO" in content
             assert content.count("Buscando atualizações AO VIVO") >= 2
