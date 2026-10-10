@@ -9,6 +9,10 @@ engine = create_async_engine(
     url_banco, 
     echo=False, 
     future=True,
+    pool_size=5,
+    max_overflow=5,
+    pool_timeout=5,
+    pool_pre_ping=True,
     connect_args=connection_args
 )
 

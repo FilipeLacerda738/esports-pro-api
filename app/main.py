@@ -23,6 +23,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.core.config import settings
 from app.api.v1 import teams, matches, system, testes
 from app.core.rate_limit import RateLimitMiddleware
+from app.core.resources import ResourceLimitMiddleware
 from app.core.logger import logger
 
 from app.jobs.tasks import (
@@ -43,16 +44,20 @@ async def lifespan(app: FastAPI):
     
     scheduler.start()
     
-    asyncio.create_task(update_live_matches_task())
-    asyncio.create_task(update_static_matches_task())
-    asyncio.create_task(resolve_stuck_matches_task())
-    
-    yield 
-
-    scheduler.shutdown()
+    initial_tasks = [asyncio.create_task(job()) for job in (
+        update_live_matches_task, update_static_matches_task, resolve_stuck_matches_task
+    )]
+    try:
+        yield
+    finally:
+        scheduler.shutdown()
+        for task in initial_tasks:
+            task.cancel()
+        await asyncio.gather(*initial_tasks, return_exceptions=True)
     logger.info("Desligando e encerrando agendador.")
 
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
+app.add_middleware(ResourceLimitMiddleware)
 app.add_middleware(RateLimitMiddleware)
 
 origins = getattr(settings, "BACKEND_CORS_ORIGINS", ["*"])

@@ -251,6 +251,49 @@ com leituras. Não é executado durante o startup ou deploy. Revise schema e
 políticas existentes antes de executá-lo; o comando interrompe a operação se
 encontrar uma configuração diferente da revisada.
 
+## Proteções de prioridade média
+
+As sincronizações automáticas e manuais compartilham um lock por processo.
+Cada lote usa caches próprios e um lock transacional PostgreSQL, liberado
+no commit ou rollback, para coordenar sessões e processos que usam esta versão.
+Falhas ou respostas sem o ID esperado da PandaScore preservam partidas;
+a rotina de resgate só aplica o estado confirmado pela API.
+
+Consultas de partidas aceitam páginas até 10.000, com offset máximo de
+100.000. A lista de times continua sendo um array: aceita `page` e `limit`,
+com padrão e máximo de 5.000 times por página. Requisições da API têm limite
+de 64 KiB de corpo, 8 KiB de query, 4 MiB de resposta e 64 execuções simultâneas.
+A leitura do corpo tem timeout de 10 segundos. O health check tem capacidade
+reservada, timeout de 5 segundos e cache de falhas de 1 segundo. O pool do
+banco usa até 10 conexões, espera de 5 segundos, conexão de 10 segundos e
+comandos de 15 segundos.
+
+No Render, o IP é extraído da cadeia `X-Forwarded-For` da direita para a
+esquerda, confiando apenas nos proxies privados da plataforma e nos CIDRs
+publicados pela Cloudflare em `security/cloudflare-proxies.txt`. A rede privada
+do Render é uma fronteira de confiança do workspace. Fora do Render, headers
+encaminhados são ignorados por padrão. `TRUSTED_PROXY_CIDRS` permite configurar
+explicitamente proxies conhecidos; não inclua redes de clientes nessa lista.
+Atualize os CIDRs quando a Cloudflare alterar seus endereços oficiais.
+
+Conexões ao pooler do Supabase verificam automaticamente o certificado e o
+hostname usando `security/supabase-ca.crt`, inclusive URLs antigas com
+`sslmode=require`. A CA é pública e seu fingerprint SHA-256 é
+`807025ad50d4ed219d2c9c7d299c004f824eb00cf7f65afef607d07b72e6cafa`.
+Outros servidores podem configurar `sslmode=verify-full&sslrootcert=CAMINHO`.
+O contexto mantém `CERT_REQUIRED`, hostname e TLS mínimo 1.2. Apenas para
+o pooler do Supabase, a flag de conformidade `VERIFY_X509_STRICT` é removida
+por causa da [cadeia intermediária reportada ao fornecedor](https://github.com/supabase/supabase/issues/50862);
+a validação da cadeia e do hostname continua obrigatória. Remova essa
+compatibilidade quando a cadeia do fornecedor estiver corrigida. A exigência
+de SSL no servidor do Supabase continua sendo uma configuração separada,
+pois [alterá-la reinicia o banco](https://supabase.com/docs/guides/platform/ssl-enforcement).
+
+O script `reset_db.py` exige desenvolvimento e um hostname/IP de loopback,
+rejeita parâmetros adicionais na URL e pede confirmação antes de apagar dados.
+Dependências corrigidas: AnyIO 4.14.2, Mako 1.4.2, pydantic-settings 2.14.2
+e Starlette 1.3.1.
+
 ## Testes locais
 
 Use um PostgreSQL descartável em `127.0.0.1:55439`, banco
@@ -272,7 +315,9 @@ As chamadas externas são simuladas na suíte; testes adicionais do backend
 rodando podem usar a chave autorizada da PandaScore e um PostgreSQL local com
 TLS habilitado. Nunca aponte os testes ou scripts de reset para o banco online.
 
-Depois da suíte, habilite TLS no mesmo PostgreSQL local e execute:
+Depois da suíte, habilite TLS no mesmo PostgreSQL local, com certificado
+`%LOCALAPPDATA%/EsportsSecurityPostgres/data/server.crt` que inclua SAN
+`localhost` e `127.0.0.1`, uso de chave e extensões de CA válidas, e execute:
 
 ```powershell
 .venv\Scripts\python.exe tests/run_local_backend.py

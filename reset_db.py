@@ -1,7 +1,9 @@
 import asyncio
 import sys
+import ipaddress
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
 from app.core.config import settings
-from app.db.session import engine
 from app.db.base import Base
 from app.models.league import League
 from app.models.team import Team
@@ -10,7 +12,7 @@ from app.models.player import Player
 from app.models.map import GameMap
 
 async def reset_database():
-    if settings.ENVIRONMENT != "development":
+    if settings.ENVIRONMENT != "development" or not is_local_database(settings.DATABASE_URL):
         print(f"ALERTA CRÍTICO: Tentativa de reset em ambiente '{settings.ENVIRONMENT}'.")
         print("Operação bloqueada. Esse script só tem permissão para rodar no ambiente local de desenvolvimento.")
         sys.exit(1)
@@ -23,6 +25,7 @@ async def reset_database():
         sys.exit(0)
 
     print("Iniciando o reset do banco de dados...")
+    from app.db.session import engine
     
     async with engine.begin() as conn:
         print("Apagando tabelas antigas...")
@@ -32,6 +35,18 @@ async def reset_database():
         await conn.run_sync(Base.metadata.create_all)
         
     print("Banco de dados recriado")
+
+
+def is_local_database(raw_url):
+    try:
+        url = make_url(raw_url)
+        if url.query or not url.host:
+            return False
+        if url.host == "localhost":
+            return True
+        return ipaddress.ip_address(url.host).is_loopback
+    except (ValueError, TypeError, ArgumentError):
+        return False
 
 if __name__ == "__main__":
     asyncio.run(reset_database())

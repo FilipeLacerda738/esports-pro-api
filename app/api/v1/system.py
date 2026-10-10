@@ -15,6 +15,7 @@ _version_lock = asyncio.Lock()
 _health_cache = None
 _health_expires = 0.0
 _health_lock = asyncio.Lock()
+_health_error = None
 
 class AppVersionResponse(BaseModel):
     version: str
@@ -58,11 +59,20 @@ async def _fetch_app_version():
 
 @router.get("/health")
 async def health_check():
-    global _health_cache, _health_expires
+    global _health_cache, _health_expires, _health_error
     async with _health_lock:
+        if _health_error is not None and monotonic() < _health_expires:
+            raise HTTPException(status_code=503, detail="Database connection failed")
         if _health_cache is not None and monotonic() < _health_expires:
             return _health_cache.copy()
-        result = await _check_database()
+        try:
+            result = await asyncio.wait_for(_check_database(), timeout=5)
+        except (HTTPException, TimeoutError):
+            _health_cache = None
+            _health_error = True
+            _health_expires = monotonic() + 1
+            raise HTTPException(status_code=503, detail="Database connection failed")
+        _health_error = None
         _health_cache = result
         _health_expires = monotonic() + 5
         return result.copy()

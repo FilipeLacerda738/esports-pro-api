@@ -2,11 +2,13 @@ from limits import parse
 from limits.storage import MemoryStorage
 from limits.strategies import FixedWindowRateLimiter
 from starlette.responses import JSONResponse
+from app.core.proxy import client_identity, trusted_proxy_networks
 
 
 class RateLimitMiddleware:
     def __init__(self, app):
         self.app = app
+        self.trusted_proxies = trusted_proxy_networks()
         self.limiter = FixedWindowRateLimiter(MemoryStorage())
         self.read_limit = parse("1200/minute")
         self.write_limit = parse("20/minute")
@@ -15,8 +17,7 @@ class RateLimitMiddleware:
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http" and scope["path"].startswith("/api/v1/"):
             if scope["path"] != "/api/v1/system/health" and scope["method"] != "OPTIONS":
-                client = scope.get("client")
-                identity = client[0] if client else "unknown"
+                identity = client_identity(scope, self.trusted_proxies)
                 limit = self.read_limit if scope["method"] in ("GET", "HEAD") else self.write_limit
                 if (not self.limiter.hit(limit, identity)
                         or not self.limiter.hit(self.global_limit, "all")):

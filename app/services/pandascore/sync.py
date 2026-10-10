@@ -2,6 +2,7 @@ from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import text
 from app.core.logger import logger
 from app.models.team import Team
 from app.models.match import Match
@@ -10,8 +11,6 @@ from app.models.map import GameMap
 from app.models.player import Player
 from app.services.pandascore.client import get_team_roster
 
-_local_league_cache = {}
-_local_team_cache = {}
 
 async def sync_team_players(team_id_pandascore: int, team_id_db: int, game: str, db: AsyncSession):
     stmt = select(Player).filter(Player.team_id == team_id_db)
@@ -43,14 +42,14 @@ async def sync_team_players(team_id_pandascore: int, team_id_db: int, game: str,
             player.team_id = team_id_db
             player.image_url = p_data.get("image_url")
 
-async def _get_or_create_league(league_info: dict, db: AsyncSession) -> int:
+async def _get_or_create_league(league_info: dict, db: AsyncSession, cache: dict) -> int:
     if not league_info:
         return None
         
     league_ps_id = league_info.get("id")
 
-    if league_ps_id in _local_league_cache:
-        return _local_league_cache[league_ps_id]
+    if league_ps_id in cache:
+        return cache[league_ps_id]
 
     result_league = await db.execute(select(League).filter(League.pandascore_id == league_ps_id))
     league = result_league.scalars().first()
@@ -77,13 +76,13 @@ async def _get_or_create_league(league_info: dict, db: AsyncSession) -> int:
             
     await db.flush() 
 
-    _local_league_cache[league_ps_id] = league.id
+    cache[league_ps_id] = league.id
     return league.id
 
-async def _get_or_create_team(team_info: dict, game: str, db: AsyncSession) -> Team:
+async def _get_or_create_team(team_info: dict, game: str, db: AsyncSession, cache: dict) -> Team:
     team_ps_id = team_info["id"]
-    if team_ps_id in _local_team_cache:
-        return _local_team_cache[team_ps_id]
+    if team_ps_id in cache:
+        return cache[team_ps_id]
 
     result = await db.execute(select(Team).filter(Team.pandascore_id == team_ps_id))
     team = result.scalars().first()
@@ -111,7 +110,7 @@ async def _get_or_create_team(team_info: dict, game: str, db: AsyncSession) -> T
         if team_info.get("location"): team.location = team_info.get("location")
 
     await db.flush()
-    _local_team_cache[team_ps_id] = team
+    cache[team_ps_id] = team
         
     if team_info.get("players"):
         for p_data in team_info.get("players", []):
@@ -137,8 +136,9 @@ async def _get_or_create_team(team_info: dict, game: str, db: AsyncSession) -> T
     return team
 
 async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
-    _local_league_cache.clear()
-    _local_team_cache.clear()
+    await db.execute(text("SELECT pg_advisory_xact_lock(736278419)"))
+    league_cache = {}
+    team_cache = {}
     
     for data in matches_data:
         tournament_info = data.get("tournament") or {}
@@ -152,9 +152,9 @@ async def sync_matches_to_db(matches_data: list, db: AsyncSession, game: str):
         if len(opponents) != 2:
             continue
 
-        league_internal_id = await _get_or_create_league(data.get("league"), db)
-        team_a = await _get_or_create_team(opponents[0]["opponent"], game, db)
-        team_b = await _get_or_create_team(opponents[1]["opponent"], game, db)
+        league_internal_id = await _get_or_create_league(data.get("league"), db, league_cache)
+        team_a = await _get_or_create_team(opponents[0]["opponent"], game, db, team_cache)
+        team_b = await _get_or_create_team(opponents[1]["opponent"], game, db, team_cache)
       
         begin_at = None
         if data.get("begin_at"):

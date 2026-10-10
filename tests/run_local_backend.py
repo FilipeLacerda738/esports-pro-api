@@ -4,6 +4,10 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+import socket
+import ssl
+import struct
+from urllib.parse import quote
 
 import asyncpg
 from dotenv import dotenv_values
@@ -14,6 +18,27 @@ ROOT = Path(__file__).resolve().parents[1]
 BASE_URL = "http://127.0.0.1:58081"
 LOCAL_DSN = "postgresql://postgres:local-security-test-only@127.0.0.1:55439/esports_security_test?sslmode=require"
 LOCAL_BACKEND_DSN = "postgresql+asyncpg://esports_backend:local-backend-test-only@127.0.0.1:55439/esports_security_test?sslmode=require"
+LOCAL_CA = Path(os.environ['LOCALAPPDATA']) / 'EsportsSecurityPostgres' / 'data' / 'server.crt'
+LOCAL_DSN = LOCAL_DSN.replace('sslmode=require', 'sslmode=verify-full&sslrootcert=' + quote(LOCAL_CA.as_posix(), safe=''))
+LOCAL_BACKEND_DSN = LOCAL_BACKEND_DSN.replace('sslmode=require', 'sslmode=verify-full&sslrootcert=' + quote(LOCAL_CA.as_posix(), safe=''))
+
+
+def check_local_tls():
+    verified = ssl.create_default_context(cafile=str(LOCAL_CA))
+    def handshake(context, hostname):
+        with socket.create_connection(('127.0.0.1', 55439), timeout=5) as connection:
+            connection.sendall(struct.pack('!II', 8, 80877103))
+            assert connection.recv(1) == b'S'
+            with context.wrap_socket(connection, server_hostname=hostname) as secured:
+                assert secured.version() in ('TLSv1.2', 'TLSv1.3')
+    handshake(verified, 'localhost')
+    for context, hostname in ((verified, 'wrong.local'), (ssl.create_default_context(), 'localhost')):
+        try:
+            handshake(context, hostname)
+        except ssl.SSLCertVerificationError:
+            continue
+        raise AssertionError('Invalid certificate or hostname was accepted')
+    print('Local TLS: valid CA accepted, wrong hostname and untrusted CA rejected: PASS', flush=True)
 
 
 async def prepare_local_data():
@@ -67,6 +92,7 @@ async def check_limits_and_health():
 
 
 def main():
+    check_local_tls()
     values = dotenv_values(ROOT / ".env")
     api_key = values.get("API_ACCESS_KEY")
     keys = [key.strip() for key in (values.get("PANDASCORE_KEYS") or values.get("PANDASCORE_API_KEY") or "").split(",") if key.strip()]

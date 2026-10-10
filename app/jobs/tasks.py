@@ -1,6 +1,7 @@
 import gc
+from app.core.synchronization import serialized_sync
 from datetime import datetime, timedelta, timezone
-from sqlalchemy import text, delete, update, select
+from sqlalchemy import delete, select
 
 from app.db.session import SessionLocal
 from app.models.match import Match
@@ -13,6 +14,7 @@ from app.services.pandascore import (
     get_match_by_id
 )
 
+@serialized_sync
 async def update_live_matches_task():
     logger.info("Buscando atualizações AO VIVO...")
     jogos = ["valorant", "csgo"] 
@@ -44,6 +46,7 @@ async def update_live_matches_task():
     finally:
         gc.collect()
 
+@serialized_sync
 async def update_static_matches_task():
     logger.info("Sincronizando calendário e resultados...")
     jogos = ["valorant", "csgo"] 
@@ -66,6 +69,7 @@ async def update_static_matches_task():
     finally:
         gc.collect()
 
+@serialized_sync
 async def cleanup_old_matches_task():
     logger.info("Iniciando limpeza profunda de histórico...")
     try:
@@ -87,6 +91,7 @@ async def cleanup_old_matches_task():
     finally:
         gc.collect()
 
+@serialized_sync
 async def resolve_stuck_matches_task():
     logger.info("Iniciando inspeção e resgate de partidas travadas...")
     try:
@@ -107,7 +112,7 @@ async def resolve_stuck_matches_task():
                 
                 for match in stuck_matches:
                     fresh_data = await get_match_by_id(match.pandascore_id)
-                    if fresh_data:
+                    if isinstance(fresh_data, dict) and fresh_data.get("id") == match.pandascore_id:
                         sniper_data.append(fresh_data)
                 
                 if sniper_data:
@@ -117,26 +122,6 @@ async def resolve_stuck_matches_task():
                     if csgo_data: await sync_matches_to_db(csgo_data, db, "csgo")
                     if valorant_data: await sync_matches_to_db(valorant_data, db, "valorant")
 
-            stmt_update = (
-                update(Match)
-                .where(Match.begin_at < limite_tempo)
-                .where(Match.status.in_(["not_started", "running"]))
-                .values(status="finished")
-            )
-            res_upd = await db.execute(stmt_update)
-            if res_upd.rowcount > 0:
-                logger.info(f"{res_upd.rowcount} partidas abandonadas pela API foram finalizadas à força.")
-
-            stmt_delete = (
-                delete(Match)
-                .where(Match.status.in_(["finished", "canceled"]))
-                .where(Match.team_a_score == 0)
-                .where(Match.team_b_score == 0)
-            )
-            res_del = await db.execute(stmt_delete)
-            if res_del.rowcount > 0:
-                logger.info(f"{res_del.rowcount} jogos (0-0) foram deletados do banco.")
-            
             await db.commit()
                 
     except Exception as e:

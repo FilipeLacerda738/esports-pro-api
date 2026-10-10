@@ -13,11 +13,13 @@ from app.core.security import get_admin_key, get_api_key
 from app.schemas.match import MatchResponse, MatchDetailResponse, PaginatedMatchResponse
 from app.services.pandascore import get_upcoming_matches, sync_matches_to_db, get_running_matches, get_past_matches
 
+from app.core.synchronization import serialized_sync
+
 router = APIRouter()
 
 @router.get("/", response_model=PaginatedMatchResponse, dependencies=[Depends(get_api_key)])
 async def get_matches(
-    page: int = Query(1, ge=1, description="Número da página, deve ser maior ou igual a 1"),         
+    page: int = Query(1, ge=1, le=10000, description="Número da página, deve ser maior ou igual a 1"),
     limit: int = Query(15, ge=1, le=100, description="Quantidade de itens por página (máximo 100)"),
     game: Optional[str] = None,   
     status: Optional[str] = None, 
@@ -25,6 +27,9 @@ async def get_matches(
     data_calendario: date = None,
     db: AsyncSession = Depends(get_db)
 ):
+    offset = (page - 1) * limit
+    if offset > 100000:
+        raise HTTPException(status_code=422, detail="Pagination offset exceeds 100000")
     query = select(Match)
 
     if game:
@@ -50,8 +55,6 @@ async def get_matches(
     count_query = query.with_only_columns(func.count(Match.id)).order_by(None)
     total_result = await db.execute(count_query)
     total_items = total_result.scalar()
-
-    offset = (page - 1) * limit
 
     query = query.options(selectinload(Match.league)).offset(offset).limit(limit)
     result = await db.execute(query)
@@ -87,6 +90,7 @@ async def get_match_details(match_id: int, db: AsyncSession = Depends(get_db)):
     return match
 
 @router.post("/sync-now", dependencies=[Depends(get_admin_key)])
+@serialized_sync
 async def force_sync(db: AsyncSession = Depends(get_db)):
     jogos = ["csgo", "valorant"]
     total_processado = 0

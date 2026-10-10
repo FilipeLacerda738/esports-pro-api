@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import ssl
 
 import asyncpg
 from dotenv import dotenv_values
@@ -42,13 +43,16 @@ async def apply(project_ref):
             raise RuntimeError("Stored backend credentials belong to a different target")
     else:
         backend_url = url.set(username="esports_backend." + project_ref, password=secrets.token_urlsafe(48))
-        backend_url = backend_url.update_query_dict({"sslmode": "require"})
+        backend_url = backend_url.update_query_dict({"sslmode": "verify-full", "sslrootcert": "security/supabase-ca.crt"})
         descriptor = os.open(secret_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(descriptor, "w", encoding="utf-8") as file:
             file.write("DATABASE_URL=" + json.dumps(backend_url.render_as_string(hide_password=False)) + "\n")
+    database_tls = ssl.create_default_context(cafile=str(ROOT / "security" / "supabase-ca.crt"))
+    database_tls.minimum_version = ssl.TLSVersion.TLSv1_2
+    database_tls.verify_flags &= ~ssl.VERIFY_X509_STRICT
     conn = await asyncpg.connect(
         host=url.host, port=url.port or 5432, user=url.username, password=url.password,
-        database=url.database, ssl="require", timeout=15, command_timeout=8, statement_cache_size=0,
+        database=url.database, ssl=database_tls, timeout=15, command_timeout=8, statement_cache_size=0,
     )
     try:
         snapshot = {}
@@ -84,7 +88,7 @@ async def apply(project_ref):
         await conn.close()
     runtime = await asyncpg.connect(
         host=backend_url.host, port=backend_url.port or 5432, user=backend_url.username,
-        password=backend_url.password, database=backend_url.database, ssl="require",
+        password=backend_url.password, database=backend_url.database, ssl=database_tls,
         timeout=15, command_timeout=8, statement_cache_size=0,
     )
     try:

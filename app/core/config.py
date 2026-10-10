@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     API_ACCESS_KEY: str
     ADMIN_API_KEY: str = ""
     ENVIRONMENT: str = "production"
+    TRUSTED_PROXY_CIDRS: str = ""
     BACKEND_CORS_ORIGINS: List[str] = ["*"]
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
